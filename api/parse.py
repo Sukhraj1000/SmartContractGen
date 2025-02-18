@@ -34,20 +34,19 @@ def extract_contract_details(text):
     doc = nlp(text)
     contract_data = defaultdict(str)
     
-    # Detect contract type (Escrow, Vesting, Crowdfunding, etc.)
-    if "escrow" in text.lower():
-        contract_data["contract_type"] = "escrow"
-    elif "vesting" in text.lower():
-        contract_data["contract_type"] = "vesting"
-    elif "crowdfunding" in text.lower() or "fundraising" in text.lower():
-        contract_data["contract_type"] = "crowdfunding"
+    # Detect contract type dynamically
+    contract_types = ["escrow", "vesting", "crowdfunding", "loan", "partnership", "licensing", "nda", "employment"]
+    for ctype in contract_types:
+        if ctype in text.lower():
+            contract_data["contract_type"] = ctype
+            break
     else:
         contract_data["contract_type"] = "custom"
     
-    # Extract Depositor, Beneficiary, and Escrow Agent
-    parties = re.findall(r'([A-Za-z0-9 &.,]+), a corporation.*?hereinafter referred to as the "(Depositor|Beneficiary|Escrow Agent)"', text)
+    # Extract parties
+    parties = re.findall(r'([A-Za-z0-9 &.,]+), a corporation.*?hereinafter referred to as the "([A-Za-z ]+)"', text)
     for entity, role in parties:
-        contract_data[role.lower()] = entity.strip()
+        contract_data.setdefault("parties", {})[role.lower()] = entity.strip()
     
     # Extract payment details (amount and currency)
     payment_match = re.search(r'([A-Z]{3})\s([0-9,]+)', text)
@@ -57,26 +56,41 @@ def extract_contract_details(text):
             "currency": payment_match.group(1)
         }
     
-    # Extract release conditions
-    conditions = re.findall(r'(upon|when|if|after)\s+([^\n]+)', text, re.IGNORECASE)
-    contract_data["release_conditions"] = [condition[1].strip() for condition in conditions]
+    # Extract key obligations
+    obligations = re.findall(r'([A-Za-z ]+) shall (.+?)(?:\.|\n)', text)
+    for party, obligation in obligations:
+        contract_data.setdefault("obligations", {})[party.lower()] = obligation.strip()
     
-    # Extract expiry details (if mentioned)
-    expiry_match = re.search(r'(expires?|expiry|deadline)\s+(on|in|after)\s+([^.,]+)', text, re.IGNORECASE)
-    if expiry_match:
-        contract_data["expiry"] = expiry_match.group(3)
+    # Extract conditions
+    conditions = re.findall(r'(upon|when|if|after)\s+([^\n]+)', text, re.IGNORECASE)
+    contract_data["conditions"] = [condition[1].strip() for condition in conditions]
+    
+    # Extract governing law and dispute resolution
+    governing_law_match = re.search(r'governed by the laws of ([A-Za-z ]+)', text, re.IGNORECASE)
+    if governing_law_match:
+        contract_data["governing_law"] = governing_law_match.group(1).strip()
+    
+    dispute_resolution_match = re.search(r'dispute shall be resolved by ([A-Za-z ]+)', text, re.IGNORECASE)
+    if dispute_resolution_match:
+        contract_data["dispute_resolution"] = dispute_resolution_match.group(1).strip()
     
     return contract_data
 
+def clean_ai_response(response_text):
+    """Cleans AI response to remove surrounding markdown-style triple backticks."""
+    response_text = response_text.strip()
+    if response_text.startswith("```json") and response_text.endswith("```"):
+        response_text = response_text[7:-3].strip()
+    return response_text
+
 def refine_contract_details(nlp_extracted_data, full_text):
-    """Use AI to refine and validate extracted contract details."""
+    """Use AI to refine and validate extracted contract details and save output to a file."""
     messages = [
         {
             "role": "system",
             "content": (
                 "You are an AI assistant trained to analyze and extract key legal details from contracts. "
-                "Ensure accuracy in identifying the Depositor, Beneficiary, and Escrow Agent, "
-                "along with key obligations, fund release conditions, and deadlines. "
+                "Ensure accuracy in identifying all parties, obligations, conditions, payment terms, governing law, and dispute resolution mechanisms. "
                 "Provide a structured JSON output while correcting errors and missing details."
             ),
         },
@@ -95,18 +109,18 @@ def refine_contract_details(nlp_extracted_data, full_text):
             messages=messages
         )
         
-        # Ensure response contains valid content
-        ai_output = response.choices[0].message.content.strip()
+        ai_output = clean_ai_response(response.choices[0].message.content.strip())
         if not ai_output:
             raise ValueError("AI response is empty.")
         
-        # Debugging: Print raw AI response before parsing
-        print("AI Response:", ai_output)
-        
-        return json.loads(ai_output)
-    except json.JSONDecodeError as e:
-        print("Error decoding AI response:", e)
-        return {"error": "Invalid JSON from AI"}
+        try:
+            json_data = json.loads(ai_output)
+            with open("extracted_contract.json", "w") as json_file:
+                json.dump(json_data, json_file, indent=4)
+            return json_data
+        except json.JSONDecodeError:
+            print("Invalid JSON format from AI response. Returning raw text.")
+            return {"error": "Invalid JSON format", "raw_response": ai_output}
     except Exception as e:
         print("OpenAI API error:", e)
         return {"error": str(e)}
@@ -121,5 +135,5 @@ def process_contract(file_path):
 # Example
 if __name__ == "__main__":
     file_path = "ESCROW AGREEMENT.docx"  # Change to your file
-    extracted_data = process_contract(file_path)
-    print(extracted_data)
+    process_contract(file_path)
+    print("Extracted contract details saved to extracted_contract.json")

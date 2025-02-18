@@ -1,86 +1,176 @@
 import os
 import json
-from openai import OpenAI
+import openai
+from docx import Document
+from pdfminer.high_level import extract_text
 from dotenv import load_dotenv, find_dotenv
 
 # Load environment variables
 _ = load_dotenv(find_dotenv())
 
-client = OpenAI(api_key=os.environ.get('OPEN_API_KEY'))
+# Initialize OpenAI client
+client = openai.OpenAI(api_key=os.environ.get('OPEN_API_KEY'))
 
-# Define the root directory for Examples folder dynamically
-ROOT_DIR = os.path.abspath(os.path.dirname(__file__))  # Get the script's directory
-EXAMPLES_DIR = os.path.join(ROOT_DIR, "Examples")  # Path to Examples folder
+def load_extracted_json():
+    """Loads the full extracted contract JSON from file."""
+    json_path = "extracted_contract.json"
+    if not os.path.exists(json_path):
+        raise FileNotFoundError("Extracted contract JSON file not found.")
 
-# Predefined contract templates for reference
-CONTRACT_TEMPLATES = {
-    os.path.join(EXAMPLES_DIR, "example1.rs"): "contract_generator.rs",
-    os.path.join(EXAMPLES_DIR, "example2.rs"): "legal_agreement.rs",
-    os.path.join(EXAMPLES_DIR, "example3.rs"): "tokenized_asset.rs",
-    os.path.join(EXAMPLES_DIR, "example4.rs"): "subscription_contract.rs",
-    os.path.join(EXAMPLES_DIR, "example5.rs"): "voting_contract.rs",
-    os.path.join(EXAMPLES_DIR, "example6.rs"): "supply_chain_contract.rs",
-    os.path.join(EXAMPLES_DIR, "example7.rs"): "crowdfunding_contract.rs",
-}
+    with open(json_path, "r") as file:
+        return json.load(file)
 
-# Function to generate Solana smart contract
-def generate_solana_contract(legal_document, user_preferences):
+def extract_text_from_file(file_path):
+    """Extract text from PDF, DOCX, or TXT files."""
+    if file_path.endswith(".pdf"):
+        return extract_text(file_path)
+    elif file_path.endswith(".docx"):
+        doc = Document(file_path)
+        return "\n".join([para.text for para in doc.paragraphs])
+    elif file_path.endswith(".txt"):
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read()
+    else:
+        raise ValueError("Unsupported file format. Only PDF, DOCX, and TXT are supported.")
+
+def load_legal_document():
+    """Loads the original legal document text from file."""
+    doc_path = "ESCROW AGREEMENT.docx"
+    if not os.path.exists(doc_path):
+        raise FileNotFoundError("Legal document file not found.")
+    
+    return extract_text_from_file(doc_path)
+
+def compare_contract_with_legal(contract_code, legal_text):
+    """Compares the generated smart contract with the original legal document."""
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are an expert in smart contract auditing and legal compliance. "
+                "Your task is to compare the following original legal contract text with the generated Solana smart contract. "
+                "Identify any missing clauses, incorrect obligations, or security vulnerabilities. "
+                "Ensure that all legal requirements in the document are correctly implemented in the smart contract. "
+                "Return a structured JSON output listing any discrepancies and necessary improvements."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                "Original Legal Document: \n" + legal_text + "\n\n"
+                "Generated Smart Contract Code: \n" + contract_code + "\n\n"
+                "Provide a structured report of any mismatches and suggested fixes."
+            )
+        }
+    ]
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages
+        )
+        
+        audit_report = response.choices[0].message.content.strip()
+        with open("contract_audit_report.json", "w") as file:
+            file.write(audit_report)
+        
+        return audit_report
+    except Exception as e:
+        print("OpenAI API error:", e)
+        return f"Error during contract audit: {str(e)}"
+
+def refine_solana_contract(contract_code, legal_text):
+    """Refines the generated smart contract based on legal document comparison."""
+    audit_report = compare_contract_with_legal(contract_code, legal_text)
+    
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are an expert in smart contract auditing and refinement. "
+                "Your task is to improve the given smart contract based on the provided audit feedback from the original legal document. "
+                "Ensure the contract fully implements all obligations, security best practices, and legal compliance as outlined in the legal document. "
+                "Address issues found in the audit report, such as missing clauses, security vulnerabilities, or unoptimised logic. "
+                "Return only the improved Solana smart contract code, with only comments but no other explanations in the file."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                "Original Smart Contract Code: \n" + contract_code + "\n\n"
+                "Audit Report: \n" + audit_report + "\n\n"
+                "Generate a revised, legally compliant, and fully optimized Solana smart contract, incorporating all necessary fixes."
+            )
+        }
+    ]
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages
+        )
+        
+        refined_contract_code = response.choices[0].message.content.strip()
+        with open("final_contract.rs", "w") as file:
+            file.write(refined_contract_code)
+        
+        return refined_contract_code
+    except Exception as e:
+        print("OpenAI API error:", e)
+        return f"Error refining smart contract: {str(e)}"
+
+def generate_solana_contract():
     """
-    Generates a Solana smart contract based on the provided legal document and user preferences.
+    Generates and refines a Solana smart contract by embedding the extracted JSON into the AI query.
     """
-
+    extracted_json = load_extracted_json()
+    legal_text = load_legal_document()
+    json_query = json.dumps(extracted_json, indent=4)
+    
+    # First AI Pass - Generate Initial Contract
     messages = [
         {
             "role": "system",
             "content": (
                 "You are an expert in writing Solana smart contracts in Rust using the Anchor framework. "
-                "Your task is to generate a smart contract based on a provided legal document and user preferences. "
-                "Ensure most of the code is commented to provide details of what is going on. "
-                "Only the Code and the comments for the code should be present, no other explanations. "
-                "If there are other explanations then comment with correct syntax. "
-                "Use one of the following predefined templates as a foundation:\n"
-                + "\n".join([f"{os.path.basename(key)}: {value}" for key, value in CONTRACT_TEMPLATES.items()])
-                + "\nEnsure the generated contract is structured properly, and if any required inputs are missing, flag them clearly for UI input."
+                "Your task is to generate a high-quality, secure, and legally enforceable Solana smart contract based on the following contract details: \n"
+                f"{json_query}\n"
+                "Ensure that the smart contract meets all legal and security requirements."
             ),
-        },
-        {
-            "role": "user",
-            "content": json.dumps({
-                "legal_document": legal_document,
-                "user_preferences": user_preferences
-            }, indent=4)
         }
     ]
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages
+        )
+        
+        contract_code = response.choices[0].message.content.strip()
+        if not contract_code:
+            raise ValueError("AI response is empty.")
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=messages
-    )
+        with open("generated_contract.rs", "w") as file:
+            file.write(contract_code)
+        
+        # Perform two refinement iterations with legal document comparison
+        for i in range(2):
+            print(f"Refinement Loop {i+1}...")
+            contract_code = refine_solana_contract(contract_code, legal_text)
+        
+        print("Refinement completed. Review 'final_contract.rs' for the final version.")
+        return contract_code
+    except Exception as e:
+        print("OpenAI API error:", e)
+        return f"Error generating smart contract: {str(e)}"
 
-    return response.choices[0].message.content
-
+# Example usage
+def main():
+    try:
+        smart_contract_code = generate_solana_contract()
+        print("Smart contract generated, audited, and refined successfully!")
+    except Exception as e:
+        print("Error:", e)
 
 if __name__ == "__main__":
-    # Simulate user input (In actual implementation, this would be taken from UI)
-    legal_document = (
-        "This document outlines a tokenized asset framework. "
-        "The contract should include ownership validation and prevent unauthorized transfers."
-    )
-    
-    user_preferences = {
-        "contract_type": "tokenized_asset",  # User selects the relevant template
-        "ownership_required": True,
-        "transfer_restrictions": True,
-        "burn_function": True,
-        "additional_features": ["pausable", "role-based access control"]
-    }
-
-    # Generate the contract based on user input
-    solana_contract = generate_solana_contract(legal_document, user_preferences)
-    
-    # Save the output to the Examples folder
-    output_file = "generated_solana_contract.rs"
-    with open(output_file, "w") as file:
-        file.write(solana_contract)
-    
-    print(f"Solana smart contract generated and saved to {output_file}")
+    main()
