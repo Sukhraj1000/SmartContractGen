@@ -1,0 +1,12 @@
+{
+    "contract_type": "escrow",
+    "contract_name": "",
+    "parties": {
+      "buyer": { "wallet_address": "" },
+      "seller": { "wallet_address": "" }
+    },
+    "amount": 0,
+    "currency": "SOL",
+    "release_condition": "payment_received"
+  }
+  
