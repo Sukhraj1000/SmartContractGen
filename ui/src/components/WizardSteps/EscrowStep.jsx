@@ -25,7 +25,7 @@ const EscrowStep = () => {
     setContractSchema((prev) => ({
       ...prev,
       [category]: {
-        ...prev[category], // Keeps existing values inside category
+        ...prev[category], 
         [key]: value,
       },
     }));

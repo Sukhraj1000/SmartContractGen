@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 import { motion } from "framer-motion";
 import { RocketLaunch, UploadFile } from "@mui/icons-material";
-import "../styles/global.css"; // Import global styles
+import "../styles/global.css";
 
 
 const Home = () => {
@@ -27,7 +27,7 @@ const Home = () => {
     <Container
       maxWidth="xl"
       sx={{
-        height: "100vh", // Full screen height
+        height: "100vh", 
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
