@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Container, Grid, Typography, Button, TextField, Paper, IconButton } from "@mui/material";
+import React, { useState, useEffect } from "react";
+import { Container, Grid2, Typography, Button, TextField, Paper, IconButton } from "@mui/material";
 import { useWizard } from "../../context/WizardContext";
 import DeleteIcon from "@mui/icons-material/Delete";
 
@@ -8,6 +8,13 @@ const CustomStep = () => {
   const [step, setStep] = useState(1);
   const [newKey, setNewKey] = useState("");
   const [newValue, setNewValue] = useState("");
+
+  // Reset when contract type is missing
+  useEffect(() => {
+    if (!contractSchema.contract_type) {
+      setCurrentStep(1); 
+    }
+  }, [contractSchema, setCurrentStep]);
 
   // Update contract schema fields (e.g., contract_name, contract_type)
   const handleContractChange = (key, value) => {
@@ -54,12 +61,12 @@ const CustomStep = () => {
             value={contractSchema.contract_name || ""}
             onChange={(e) => handleContractChange("contract_name", e.target.value)}
           />
-          <Grid container justifyContent="space-between">
+          <Grid2 container justifyContent="space-between">
             <Button variant="outlined" onClick={() => setCurrentStep(1)}>Back</Button>
             <Button variant="contained" onClick={() => setStep(2)} disabled={!contractSchema.contract_name}>
               Next
             </Button>
-          </Grid>
+          </Grid2>
         </>
       )}
 
@@ -94,37 +101,22 @@ const CustomStep = () => {
             <Paper sx={{ padding: 2, textAlign: "left", backgroundColor: "#333", color: "white", width: "100%", mb: 2 }}>
               <Typography variant="h6" sx={{ color: "yellow", mb: 2 }}>Added Fields:</Typography>
               {Object.entries(contractSchema.parameters).map(([key, value]) => (
-                <Grid container key={key} justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                <Grid2 container key={key} justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
                   <Typography>{key}: {value}</Typography>
                   <IconButton onClick={() => handleRemoveParameter(key)} sx={{ color: "red" }}>
                     <DeleteIcon />
                   </IconButton>
-                </Grid>
+                </Grid2>
               ))}
             </Paper>
           )}
 
-          <Grid container justifyContent="space-between">
+          <Grid2 container justifyContent="space-between" sx={{ width: "100%" }}>
             <Button variant="outlined" onClick={() => setStep(1)}>Back</Button>
-            <Button variant="contained" onClick={() => setStep(3)} disabled={Object.keys(contractSchema.parameters || {}).length === 0}>
+            <Button variant="contained" onClick={() => setCurrentStep(3)}>
               Next
             </Button>
-          </Grid>
-        </>
-      )}
-
-      {step === 3 && (
-        <>
-          <Typography variant="h4" sx={{ color: "white", mb: 3 }}>Step 4: Review & JSON Summary</Typography>
-          <Paper sx={{ padding: 2, textAlign: "left", backgroundColor: "#333", color: "white", width: "100%" }}>
-            <pre>{JSON.stringify(contractSchema, null, 2)}</pre>
-          </Paper>
-          <Grid container justifyContent="space-between" sx={{ mt: 3 }}>
-            <Button variant="outlined" onClick={() => setStep(2)}>Back</Button>
-            <Button variant="contained" color="success" onClick={() => console.log("Contract Submitted:", contractSchema)}>
-              Submit Contract
-            </Button>
-          </Grid>
+          </Grid2>
         </>
       )}
     </Container>
