@@ -9,7 +9,7 @@ const TokenVestingStep = () => {
   // Reset when contract type is missing
   useEffect(() => {
     if (!contractSchema.contract_type) {
-      setCurrentStep(1); // Redirect to contract type selection
+      setCurrentStep(1);
     }
   }, [contractSchema, setCurrentStep]);
 
@@ -17,7 +17,7 @@ const TokenVestingStep = () => {
   const handleContractChange = (value) => {
     setContractSchema((prev) => ({
       ...prev,
-      contract_name: value || "", // Ensures contract_name is always a string
+      contract_name: value || "", 
     }));
   };
 
