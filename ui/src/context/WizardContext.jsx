@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState } from "react";
 const WizardContext = createContext();
 
 export function WizardProvider({ children }) {
-  const [contractSchema, setContractSchema] = useState(null);
+  const [contractSchema, setContractSchema] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
 
   return (

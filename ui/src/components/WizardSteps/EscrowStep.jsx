@@ -1,15 +1,33 @@
-import React, { useState } from "react";
-import { Container, Grid, Typography, Button, TextField, Select, MenuItem, Paper } from "@mui/material";
+import React, { useState, useEffect } from "react";
+import { Container, Grid2, Typography, Button, TextField, Select, MenuItem } from "@mui/material";
 import { useWizard } from "../../context/WizardContext";
 
 const EscrowStep = () => {
   const { contractSchema, setContractSchema, setCurrentStep } = useWizard();
   const [step, setStep] = useState(1);
 
+  // Reset if contract type is missing
+  useEffect(() => {
+    if (!contractSchema.contract_type) {
+      setCurrentStep(1);
+    }
+  }, [contractSchema.contract_type, setCurrentStep]);
+
+  // Ensures `contract_name` updates properly
+  const handleContractChange = (value) => {
+    setContractSchema((prev) => ({
+      ...prev,
+      contract_name: value || "", 
+    }));
+  };
+
   const handleChange = (category, key, value) => {
     setContractSchema((prev) => ({
       ...prev,
-      [category]: { ...prev[category], [key]: value }
+      [category]: {
+        ...prev[category], // Keeps existing values inside category
+        [key]: value,
+      },
     }));
   };
 
@@ -17,7 +35,14 @@ const EscrowStep = () => {
     <Container maxWidth="sm" sx={{ display: "flex", flexDirection: "column", alignItems: "center", mt: 4 }}>
       {step === 1 && (
         <>
-          <Typography variant="h4" sx={{ color: "white", mb: 3 }}>Step 2: Define Parties</Typography>
+          <Typography variant="h4" sx={{ color: "white", mb: 3 }}>Step 2: Escrow Details</Typography>
+          <TextField 
+            fullWidth 
+            label="Contract Name" 
+            sx={{ mb: 2, backgroundColor: "white" }} 
+            value={contractSchema.contract_name || ""}
+            onChange={(e) => handleContractChange(e.target.value)}
+          />
           <TextField 
             fullWidth 
             label="Buyer Wallet Address" 
@@ -32,13 +57,13 @@ const EscrowStep = () => {
             value={contractSchema.parties?.seller || ""}
             onChange={(e) => handleChange("parties", "seller", e.target.value)}
           />
-          <Grid container justifyContent="space-between" sx={{ width: "100%" }}>
+          <Grid2 container justifyContent="space-between" sx={{ width: "100%" }}>
             <Button variant="outlined" onClick={() => setCurrentStep(1)}>Back</Button>
             <Button variant="contained" onClick={() => setStep(2)}
               disabled={!contractSchema.contract_name || !contractSchema.parties?.buyer || !contractSchema.parties?.seller}>
               Next
             </Button>
-          </Grid>
+          </Grid2>
         </>
       )}
 
@@ -69,28 +94,13 @@ const EscrowStep = () => {
             value={contractSchema.parameters?.release_condition || ""}
             onChange={(e) => handleChange("parameters", "release_condition", e.target.value)}
           />
-          <Grid container justifyContent="space-between" sx={{ width: "100%" }}>
+          <Grid2 container justifyContent="space-between" sx={{ width: "100%" }}>
             <Button variant="outlined" onClick={() => setStep(1)}>Back</Button>
-            <Button variant="contained" onClick={() => setStep(3)}
+            <Button variant="contained" onClick={() => setCurrentStep(3)}
               disabled={!contractSchema.parameters?.amount || !contractSchema.parameters?.release_condition}>
               Next
             </Button>
-          </Grid>
-        </>
-      )}
-
-      {step === 3 && (
-        <>
-          <Typography variant="h4" sx={{ color: "white", mb: 3 }}>Step 4: Review & JSON Summary</Typography>
-          <Paper sx={{ padding: 2, textAlign: "left", backgroundColor: "#333", color: "white", width: "100%" }}>
-            <pre>{JSON.stringify(contractSchema, null, 2)}</pre>
-          </Paper>
-          <Grid container justifyContent="space-between" sx={{ mt: 3 }}>
-            <Button variant="outlined" onClick={() => setStep(2)}>Back</Button>
-            <Button variant="contained" color="success" onClick={() => console.log("Contract Submitted:", contractSchema)}>
-              Submit Contract
-            </Button>
-          </Grid>
+          </Grid2>
         </>
       )}
     </Container>
