@@ -8,10 +8,7 @@ __pycache__/
 *.pyo
 *.pyd
 venv/
-env/
 
-# Environment variables
-.env
 
 # Wallet and sensitive JSON files
 test-wallet.json

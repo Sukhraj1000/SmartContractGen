@@ -65,7 +65,7 @@ def integrate_keys_into_contract(contract_code):
         with open(CONTRACT_OUTPUT_PATH, "w") as file:
             file.write(updated_contract)
 
-        print(f"✅ Contract updated and saved to {CONTRACT_OUTPUT_PATH}")
+        print(f"Contract updated and saved to {CONTRACT_OUTPUT_PATH}")
         return updated_contract
 
     except Exception as e:
