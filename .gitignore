@@ -9,6 +9,7 @@ __pycache__/
 *.pyd
 venv/
 
+test-ledger/
 
 # Wallet and sensitive JSON files
 test-wallet.json
