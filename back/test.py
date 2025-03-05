@@ -12,8 +12,7 @@ client = Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY'))
 
 
 prompt = """
-Create a simple Solana smart contract using the Anchor framework.
-The contract should store an escrow agreement.
+fetch test
 """
 
 response = client.messages.create(

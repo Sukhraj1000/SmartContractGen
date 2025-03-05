@@ -9,11 +9,7 @@ import {
 } from "@mui/material";
 import { motion } from "framer-motion";
 import { RocketLaunch, UploadFile } from "@mui/icons-material";
-<<<<<<< HEAD
-import "../styles/global.css";
-=======
 import "../styles/global.css"; 
->>>>>>> 016c6a8 (generated keys and addresses with output of smart contracts)
 
 
 const Home = () => {
