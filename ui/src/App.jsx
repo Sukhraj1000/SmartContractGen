@@ -1,31 +1,64 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import { ThemeProvider } from "@mui/material/styles";
 import Home from "./pages/Home";
-import WizardSteps from "./pages/WizardSteps";
+import ContractForm from "./components/ContractForm";
 import FileUpload from "./components/FileUpload";
-import ReviewStep from "./components/WizardSteps/ReviewStep";
 import ContractOutput from "./pages/ContractOutput";
 import ContractProcessing from "./pages/ContractProcessing";
-import { WizardProvider } from "./context/WizardContext";
+import NavBar from "./components/NavBar";
 import { CssBaseline, Container } from "@mui/material";
+import theme from "./theme";
+
+// Navigation wrapper that displays NavBar on all pages except home
+const NavigationWrapper = ({ children }) => {
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
+  
+  return (
+    <>
+      {!isHomePage && <NavBar />}
+      <Container sx={{ mt: isHomePage ? 0 : 4 }}>
+        {children}
+      </Container>
+    </>
+  );
+};
 
 function App() {
   return (
-    <WizardProvider>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-        <Container sx={{ mt: 4 }}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/wizard" element={<WizardSteps />} />
-            <Route path="/upload" element={<FileUpload />} />
-            <Route path="/review" element={<ReviewStep />} />
-            <Route path="/contract/:contractId" element={<ContractOutput />} />
-            <Route path="/processing/:contractId" element={<ContractProcessing />} />
-          </Routes>
-        </Container>
+        <Routes>
+          <Route path="/" element={
+            <NavigationWrapper>
+              <Home />
+            </NavigationWrapper>
+          } />
+          <Route path="/contract-form" element={
+            <NavigationWrapper>
+              <ContractForm />
+            </NavigationWrapper>
+          } />
+          <Route path="/upload" element={
+            <NavigationWrapper>
+              <FileUpload />
+            </NavigationWrapper>
+          } />
+          <Route path="/contract/:contractId" element={
+            <NavigationWrapper>
+              <ContractOutput />
+            </NavigationWrapper>
+          } />
+          <Route path="/processing/:contractId" element={
+            <NavigationWrapper>
+              <ContractProcessing />
+            </NavigationWrapper>
+          } />
+        </Routes>
       </Router>
-    </WizardProvider>
+    </ThemeProvider>
   );
 }
 

@@ -1,0 +1,25 @@
+{
+  "standard_mint": {
+    "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "decimals": 6,
+    "name": "USDC"
+  },
+  "test_mint": {
+    "address": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+    "decimals": 6,
+    "name": "TEST"
+  },
+  "native_sol": {
+    "address": "So11111111111111111111111111111111111111112",
+    "decimals": 9,
+    "name": "SOL"
+  },
+  "token_snippets": {
+    "imports": "\nuse anchor_lang::prelude::*;\nuse anchor_lang::solana_program::{program::invoke, system_instruction};\nuse anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};\nuse anchor_spl::associated_token::AssociatedToken;\n",
+    "mint_account": "\n#[account(mut)]\npub mint: Account<'info, Mint>,\n",
+    "token_account": "\n#[account(\n    init_if_needed,\n    payer = payer,\n    associated_token::mint = mint,\n    associated_token::authority = owner,\n)]\npub token_account: Account<'info, TokenAccount>,\n",
+    "token_transfer": "\n// Transfer tokens\nlet cpi_accounts = Transfer {\n    from: ctx.accounts.from_token.to_account_info(),\n    to: ctx.accounts.to_token.to_account_info(),\n    authority: ctx.accounts.authority.to_account_info(),\n};\nlet cpi_program = ctx.accounts.token_program.to_account_info();\nlet cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);\ntoken::transfer(cpi_ctx, amount)?;\n",
+    "native_sol_transfer": "\n// Transfer native SOL\nlet ix = system_instruction::transfer(\n    &ctx.accounts.from.key(),\n    &ctx.accounts.to.key(),\n    amount,\n);\ninvoke(\n    &ix,\n    &[\n        ctx.accounts.from.to_account_info(),\n        ctx.accounts.to.to_account_info(),\n    ],\n)?;\n",
+    "programs": "\n// Token Programs\npub token_program: Program<'info, Token>,\npub associated_token_program: Program<'info, AssociatedToken>,\npub system_program: Program<'info, System>,\n"
+  }
+}

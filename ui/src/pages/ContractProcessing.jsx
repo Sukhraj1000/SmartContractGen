@@ -1,12 +1,21 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Container, Typography, CircularProgress, Alert } from "@mui/material";
+import { 
+  Container, 
+  Typography, 
+  CircularProgress, 
+  Alert, 
+  Paper, 
+  Box,
+  useTheme
+} from "@mui/material";
 import axios from "axios";
 
 const ContractProcessing = () => {
   const { contractId } = useParams();
   const navigate = useNavigate();
   const [error, setError] = useState(null);
+  const theme = useTheme();
 
   useEffect(() => {
     const checkContractStatus = async () => {
@@ -29,19 +38,32 @@ const ContractProcessing = () => {
 
   return (
     <Container maxWidth="sm" sx={{ textAlign: "center", mt: 4 }}>
-      <Typography variant="h4" sx={{ color: "white", mb: 3 }}>
-        Processing Your Smart Contract
-      </Typography>
-      {error ? (
-        <Alert severity="error">{error}</Alert>
-      ) : (
-        <>
-          <Typography sx={{ color: "gray", mb: 2 }}>
-            AI is updating your contract. This may take a few minutes.
-          </Typography>
-          <CircularProgress color="inherit" />
-        </>
-      )}
+      <Paper 
+        elevation={3} 
+        sx={{ 
+          p: 4, 
+          borderRadius: 2, 
+          background: 'rgba(29, 38, 48, 0.75)',
+          backdropFilter: 'blur(10px)'
+        }}
+      >
+        <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', mb: 4 }}>
+          Processing Your Smart Contract
+        </Typography>
+        
+        {error ? (
+          <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
+        ) : (
+          <>
+            <Box sx={{ mt: 4, mb: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <CircularProgress size={60} color="primary" sx={{ mb: 3 }} />
+              <Typography variant="body1" sx={{ color: theme.palette.text.secondary, mt: 2 }}>
+                AI is updating your contract. This may take a few minutes.
+              </Typography>
+            </Box>
+          </>
+        )}
+      </Paper>
     </Container>
   );
 };
