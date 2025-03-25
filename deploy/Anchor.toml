@@ -1,18 +1,17 @@
 [toolchain]
 
 [features]
-idl-build = true
 resolution = true
 skip-lint = false
 
 [programs.devnet]
-deploy = "GJbPXcyarfqAByXu7hk8znR2M4wJs6EZM7jh6stJMUqL"
+deploy = "8e4Xi3gmt3cgTymHhzTihUabK9rRixfy7C8MEd7EvxYo"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Devnet"
+cluster = "devnet"
 wallet = "./wallets/deploy-wallet.json"
 
 [scripts]

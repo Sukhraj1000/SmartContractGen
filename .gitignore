@@ -16,9 +16,6 @@ test-wallet.json
 receiver-wallet.json
 test-config.json
 
-# Rust build artifacts
-target/
-Cargo.lock
 
 # Temporary and system files
 *.log
