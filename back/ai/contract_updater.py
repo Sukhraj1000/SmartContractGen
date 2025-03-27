@@ -47,7 +47,7 @@ def update_contract(contract_type, contract_code, update_requirements, output_pa
     Update an existing Solana smart contract using AI.
     
     Args:
-        contract_type: Type of contract (escrow, token_vesting, crowdfunding)
+        contract_type: Type of contract (escrow, crowdfunding)
         contract_code: The existing contract code
         update_requirements: Requirements for the update
         output_path: Path to save the updated contract
@@ -84,6 +84,23 @@ def update_contract(contract_type, contract_code, update_requirements, output_pa
             ```
             """
         
+        # Prepare registry integration code if not already present
+        registry_interface_code = f"""
+// Registry integration code
+pub const REGISTRY_PROGRAM_ID: &str = "BhETt1LhzVYpK5DTcRuNZdKyb3QTz8HktUoXQJQapmvn";
+pub const REGISTRY_TRANSACTION_SEED: &str = "transaction_v1";
+
+// Structure for Registry transaction data
+#[derive(AnchorSerialize)]
+pub struct RegistryTransactionData {{
+    pub tx_type: String,
+    pub amount: u64, 
+    pub initiator: Pubkey,
+    pub target_account: Pubkey,
+    pub description: String,
+}}
+        """
+        
         # Construct prompt for the AI model
         prompt = f"""
         Update the following Solana smart contract using the Anchor framework with these requirements:
@@ -92,36 +109,37 @@ def update_contract(contract_type, contract_code, update_requirements, output_pa
         Update Requirements: {update_requirements}
         Program ID to use: {program_id}
         
-        # EXISTING CONTRACT CODE
-        ```rust
-        {contract_code}
-        ```
+        # CRITICAL TYPE SAFETY REQUIREMENTS
+        1. ALWAYS use checked math operations (checked_add, checked_sub, etc.) for all arithmetic
+        2. ALWAYS convert between i64 and u64 using try_into().unwrap() when comparing timestamps
+        3. NEVER use unwrap() on Option/Result types except for try_into() conversions
+        4. ALWAYS handle Option/Result using ok_or() with proper error types
+        5. Use proper error handling with custom error types for all failure cases
         
-        # CRITICAL ANCHOR STRUCTURE REQUIREMENTS - PRESERVE THESE
+        # CRITICAL STACK SIZE REQUIREMENTS
+        1. NEVER create large arrays or buffers on the stack
+        2. ALWAYS use references instead of moving large data structures
+        3. Keep struct sizes minimal - use the smallest possible types
+        4. Split large functions into smaller ones to reduce stack usage
+        5. Use &[u8] instead of Vec<u8> for large byte arrays
+        
+        # CRITICAL ANCHOR STRUCTURE REQUIREMENTS
         1. NEVER remove or change the #[derive(Accounts)] attribute from account validation structs
         2. NEVER remove the #[account] attribute from data account structs that store state
         3. ALWAYS maintain SIZE constants for account structs to calculate space requirements
         4. DO NOT modify instruction parameter passing (#[instruction(...)]) unless specifically requested
-        5. PRESERVE 'info lifetime parameters (e.g., 'info) in all account validation structs
+        5. PRESERVE 'info lifetime parameters in all account validation structs
         6. KEEP using Context<YourStruct> as the first parameter in instruction functions
         7. MAINTAIN system_program accounts in contexts that need them
         8. PRESERVE security validation functions like require!() for input validation
         9. KEEP proper account constraint attributes (#[account(...)])
-        10. DO NOT try to directly implement traits like Bumps manually 
+        10. DO NOT try to directly implement traits like Bumps manually
         11. KEEP using anchor_lang::prelude::* import for Anchor-specific types
+        12. Access bumps using ctx.bumps.account_name syntax (NOT ctx.bumps.get())
         
         # PROGRAM ID REQUIREMENT
         You MUST keep or update the program ID in the contract to: {program_id}
         Make sure the declare_id! macro is present with this exact ID.
-        
-        # COMMON ERRORS TO AVOID - DO NOT INTRODUCE THESE
-        1. Error "the trait Bumps is not implemented": This would happen if you remove #[derive(Accounts)] macro
-        2. Error "no function or associated item named try_accounts": This would happen if #[derive(Accounts)] is missing
-        3. Error "missing lifetime specifier": Account validation structs must keep the 'info lifetime parameter
-        4. Error "bump targets should not be provided with init": Use `bump` instead of `bump = bump` in init constraints
-        5. Never use `bump = bump` in account constraints. Use just `bump` instead.
-        
-        {template_instruction}
         
         # SECURITY REQUIREMENTS (HIGHEST PRIORITY)
         1. DO NOT remove or weaken any existing security checks
@@ -132,7 +150,17 @@ def update_contract(contract_type, contract_code, update_requirements, output_pa
         6. PRESERVE secure PDA derivation with seeds and bump
         7. DO NOT remove security validation before state changes or lamport transfers
         8. KEEP explicit bump access using ctx.bumps.account_name pattern
-
+        
+        {template_instruction}
+        
+        {registry_interface_code}
+        
+        # REGISTRY INTEROPERABILITY REQUIREMENTS - MUST IMPLEMENT
+        Your contract MUST interoperate with a pre-deployed Registry program that tracks transactions.
+        The Registry contract has a fixed Program ID of "BhETt1LhzVYpK5DTcRuNZdKyb3QTz8HktUoXQJQapmvn" which must never change.
+        
+        IMPORTANT: You MUST implement this Registry integration for interoperability testing:
+        
         Return ONLY the complete updated Rust contract code without explanations outside the code.
         """
         
@@ -373,7 +401,7 @@ def smart_contract_build_loop(contract_type, schema, max_attempts=5):
     until a successful build is achieved.
     
     Args:
-        contract_type: Type of contract (escrow, token_vesting, crowdfunding)
+        contract_type: Type of contract (escrow, crowdfunding)
         schema: JSON schema of the contract structure
         max_attempts: Maximum number of build attempts before giving up
         
@@ -601,44 +629,102 @@ codegen-units = 1
             if not error_log:
                 error_log = build_result.stdout
             
-            # Filter to include only relevant error messages
+            # Categorize errors for better handling
+            error_categories = {
+                'stack_size': {
+                    'patterns': ['Stack offset', 'exceeded max offset', 'stack usage', 'large stack variables'],
+                    'fixes': [
+                        "Minimizing stack variable sizes",
+                        "Converting large arrays to references",
+                        "Splitting large functions",
+                        "Using &[u8] instead of Vec<u8>",
+                    ]
+                },
+                'type_safety': {
+                    'patterns': ['mismatched types', 'expected `i64`', 'expected `u64`', 'overflow', 'underflow'],
+                    'fixes': [
+                        "Adding proper type conversions with try_into()",
+                        "Using checked arithmetic operations",
+                        "Implementing proper error handling",
+                    ]
+                },
+                'anchor_structure': {
+                    'patterns': ['missing lifetime', 'trait `Bumps`', 'try_accounts', 'no method named `get`'],
+                    'fixes': [
+                        "Preserving #[derive(Accounts)]",
+                        "Adding missing lifetime parameters",
+                        "Using correct bump access syntax",
+                    ]
+                }
+            }
+            
+            # Analyze errors and collect fixes
+            needed_fixes = []
+            for category, info in error_categories.items():
+                if any(pattern in error_log for pattern in info['patterns']):
+                    needed_fixes.extend(info['fixes'])
+            
+            # Filter and format error messages
             error_lines = []
             for line in error_log.split('\n'):
-                if "error" in line.lower() and not "warning" in line.lower():
+                if any(pattern in line.lower() for category in error_categories.values() for pattern in category['patterns']):
                     error_lines.append(line.strip())
             
-            error_log = "\n".join(error_lines[-10:])  # Only use the last 10 errors to avoid overwhelming
-            print(f"Build failed with errors:\n{error_log}")
+            error_summary = "\n".join(error_lines[-5:])  # Only use last 5 relevant errors
+            
+            if needed_fixes:
+                print(f"\nDetected issues requiring fixes:")
+                for fix in set(needed_fixes):  # Remove duplicates
+                    print(f"- {fix}")
+            
+            # Update error log with categorized information
+            error_log = f"""
+            Error Summary:
+            {error_summary}
+            
+            Required Fixes:
+            {chr(10).join(f'- {fix}' for fix in set(needed_fixes))}
+            """
+            
+            print(f"\nBuild failed with errors:\n{error_log}")
             
             # 6. Apply quick fixes for known error types
-            if "Stack offset" in error_log or "exceeded max offset" in error_log:
+            if any(pattern in error_log for pattern in error_categories['stack_size']['patterns']):
                 print("Detected stack size issue, applying quick fixes...")
                 with open(lib_rs_path, 'r') as f:
                     contract_code = f.read()
                 
-                # Add special stack size attributes to structs
+                # Add stack optimization attributes
                 contract_code = re.sub(
                     r'#\[account\](\s+)pub struct ([A-Za-z0-9_]+)',
                     r'#[account]\n#[derive(Default)]\1pub struct \2',
                     contract_code
                 )
                 
+                # Convert Vec<u8> to &[u8] where possible
+                contract_code = re.sub(
+                    r'Vec<u8>',
+                    r'Box<[u8]>',
+                    contract_code
+                )
+                
                 with open(lib_rs_path, 'w') as f:
                     f.write(contract_code)
             
-            if "idl-build feature is missing" in error_log:
-                print("Detected missing IDL feature, applying quick fixes...")
-                # This was handled in pre-processing but ensure Anchor.toml is updated
-                with open(anchor_toml_path, 'r') as f:
-                    anchor_toml = f.read()
+            if any(pattern in error_log for pattern in error_categories['type_safety']['patterns']):
+                print("Detected type safety issues, applying quick fixes...")
+                with open(lib_rs_path, 'r') as f:
+                    contract_code = f.read()
                 
-                if 'idl-build = true' not in anchor_toml:
-                    anchor_toml = anchor_toml.replace(
-                        "[features]", 
-                        "[features]\nidl-build = true"
-                    )
-                    with open(anchor_toml_path, 'w') as f:
-                        f.write(anchor_toml)
+                # Add checked arithmetic
+                contract_code = re.sub(
+                    r'(\w+)\s*([+\-*/])\s*(\w+)',
+                    r'\1.checked_\2(\3).ok_or(CustomError::ArithmeticError)?',
+                    contract_code
+                )
+                
+                with open(lib_rs_path, 'w') as f:
+                    f.write(contract_code)
             
         except Exception as e:
             import traceback
@@ -660,7 +746,7 @@ def deploy_contract_from_loop(program_id, contract_type, network="devnet"):
     
     Args:
         program_id: Program ID from the build loop
-        contract_type: Type of contract (escrow, token_vesting, crowdfunding)
+        contract_type: Type of contract (escrow, crowdfunding)
         network: Network to deploy to (local, devnet, mainnet)
         
     Returns:

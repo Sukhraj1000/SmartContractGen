@@ -56,12 +56,6 @@ const ContractPreview = ({ contractType, formData, fieldConfigs, isComplete }) =
       currency: "The currency type to be used (SOL or other tokens)",
       release_condition: "Conditions that must be met to release the funds",
 
-      // Token vesting parameters
-      token_mint: "The token mint address for the token to be vested",
-      total_amount: "Total amount of tokens to be vested",
-      vesting_duration: "Total duration of the vesting period in days",
-      cliff_period: "Time before tokens begin to vest (in days)",
-
       // Crowdfunding parameters
       campaign_name: "Name of the crowdfunding campaign",
       description: "Detailed description of the campaign",
@@ -82,8 +76,8 @@ const ContractPreview = ({ contractType, formData, fieldConfigs, isComplete }) =
       buyer: "Party who pays funds into the escrow",
       seller: "Party who receives funds after conditions are met",
       owner: "Party who creates and administers the contract",
-      beneficiary: "Party who receives tokens according to vesting schedule",
-      creator: "Party who creates and manages the crowdfunding campaign"
+      creator: "Party who creates and manages the crowdfunding campaign",
+      escrow_authority: "Party who controls the escrow account and manages fund release"
     };
 
     return explanations[key] || "Participant in the smart contract";

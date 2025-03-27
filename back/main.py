@@ -2,7 +2,8 @@ from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from uuid import uuid4
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from enum import Enum
 import os
 import json
 from pathlib import Path
@@ -27,13 +28,17 @@ os.makedirs(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "depl
 
 contracts = {}
 
+class ContractType(str, Enum):
+    escrow = "escrow"
+    crowdfunding = "crowdfunding"
+
 class ContractSchema(BaseModel):
-    contract_type: str
+    contract_type: ContractType
     contract_name: str
     parameters: dict
 
 class BuildDeploySchema(BaseModel):
-    contract_type: str
+    contract_type: ContractType
     contract_name: str
     parameters: dict
     max_attempts: int = 5

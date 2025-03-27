@@ -55,16 +55,6 @@ const NavBar = () => {
               alignItems: 'center',
             }}
           >
-            <Box 
-              component="img" 
-              src="/solana-logo.svg" 
-              alt="Solana Logo" 
-              sx={{ 
-                height: 28, 
-                mr: 1,
-                filter: 'brightness(1.2) saturate(1.2)'
-              }} 
-            />
             Smart Contract Generator
           </Typography>
           

@@ -12,11 +12,3 @@ codegen-units = 1
 opt-level = 3
 incremental = false
 codegen-units = 1
-
-[workspace.dependencies]
-anchor-lang = "0.31.0"
-solana-program = "1.17.14"
-
-[workspace.package]
-authors = ["SmartContractGen"]
-repository = "https://github.com/sukhrajkalon/SmartContractGen"

@@ -1,18 +1,24 @@
 [toolchain]
 
 [features]
-resolution = true
+seeds = false
 skip-lint = false
+idl-build = true
+
+[programs.localnet]
+deploy = "H2WKnMfRixa4gctT2vnJy9xNeTRULdZy4hGBTQY7jboq"
+registry = "11111111111111111111111111111111"
 
 [programs.devnet]
-deploy = "8e4Xi3gmt3cgTymHhzTihUabK9rRixfy7C8MEd7EvxYo"
+deploy = "H2WKnMfRixa4gctT2vnJy9xNeTRULdZy4hGBTQY7jboq"
+registry = "11111111111111111111111111111111"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
 cluster = "devnet"
-wallet = "./wallets/deploy-wallet.json"
+wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

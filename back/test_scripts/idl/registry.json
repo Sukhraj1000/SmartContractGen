@@ -1,0 +1,115 @@
+{
+  "version": "0.1.0",
+  "name": "registry",
+  "instructions": [
+    {
+      "name": "registerTransaction",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "callerProgramId",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "transactionRecord",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "txType",
+          "type": "string"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "initiator",
+          "type": "publicKey"
+        },
+        {
+          "name": "targetAccount",
+          "type": "publicKey"
+        },
+        {
+          "name": "description",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "verifyTransaction",
+      "accounts": [
+        {
+          "name": "requester",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "transactionRecord",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "expectedAmount",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "TransactionRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "txType",
+            "type": "string"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "initiator",
+            "type": "publicKey"
+          },
+          {
+            "name": "targetAccount",
+            "type": "publicKey"
+          },
+          {
+            "name": "callerProgramId",
+            "type": "publicKey"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "address": "BhETt1LhzVYpK5DTcRuNZdKyb3QTz8HktUoXQJQapmvn"
+  }
+} 
