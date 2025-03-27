@@ -9,8 +9,8 @@ The build loop is an automated process that:
 1. Generates an initial smart contract based on your specifications
 2. Attempts to build the contract using Anchor
 3. If errors occur, passes those errors back to the AI to fix the contract
-4. Repeats steps 2-3 until a successful build is achieved or max attempts reached
-5. Extracts the program ID and updates the contract with it
+4. Repeats steps 2-3 until a successful build is achieved or maximum attempts reached
+5. Extracts the programme ID and updates the contract with it
 6. Writes the final contract to `lib.rs` ready for manual deployment
 
 This creates a much more reliable contract generation process as it can automatically fix common errors that might occur during the build process.
@@ -50,20 +50,20 @@ from ai.contract_updater import smart_contract_build_loop
 schema = {
     "name": "MyEscrow",
     "description": "A simple escrow contract",
-    "owner": "initializer",
+    "owner": "initialiser",
     "amount": "u64",
     # Add more schema properties as needed
 }
 
 # Run the build loop
-success, program_id = smart_contract_build_loop(
+success, programme_id = smart_contract_build_loop(
     contract_type="escrow",
     schema=schema,
     max_attempts=3
 )
 
-if success and program_id:
-    print(f"Contract built successfully! Program ID: {program_id}")
+if success and programme_id:
+    print(f"Contract built successfully! Programme ID: {programme_id}")
     print("Ready for manual deployment via `anchor deploy`")
 ```
 
@@ -98,9 +98,9 @@ If the build loop is failing:
 1. Check the logs for specific error messages
 2. Try increasing the `max_attempts` value
 3. Simplify your schema requirements
-4. Make sure Anchor and Solana CLI are properly installed
+4. Ensure Anchor and Solana CLI are properly installed
 5. Ensure your Solana version is compatible with Anchor
 
 ## Advanced Usage
 
-For advanced users, you can modify the `ai.contract_updater.py` file to customize how the build loop processes errors and generates fixes. 
+For advanced users, you can modify the `ai.contract_updater.py` file to customise how the build loop processes errors and generates fixes. 

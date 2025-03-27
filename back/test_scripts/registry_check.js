@@ -54,7 +54,7 @@ async function checkRegistryIntegration(programId, contractType = 'generic') {
     const programInfo = await connection.getAccountInfo(new PublicKey(programId));
     
     if (!programInfo) {
-      console.error('❌ Program not found on devnet!');
+      console.error('Program not found on devnet!');
       return false;
     }
     
@@ -63,9 +63,9 @@ async function checkRegistryIntegration(programId, contractType = 'generic') {
     const hasRegistryId = programData.includes(Buffer.from(REGISTRY_ID));
     
     if (hasRegistryId) {
-      console.log(`✅ Registry Program ID (${REGISTRY_ID}) found in program binary`);
+      console.log(`Registry Program ID (${REGISTRY_ID}) found in program binary`);
     } else {
-      console.warn(`⚠️ Registry Program ID not found in binary.`);
+      console.warn(`Registry Program ID not found in binary.`);
     }
     
     // Second method: Try to call the program and capture logs
@@ -121,10 +121,10 @@ async function checkRegistryIntegration(programId, contractType = 'generic') {
         
         logs.forEach(log => {
           if (log.includes('Registry Transaction:')) {
-            console.log('✅ Found Registry integration log:', log);
+            console.log('Found Registry integration log:', log);
             registryLogFound = true;
           } else if (log.includes(REGISTRY_ID)) {
-            console.log('✅ Found Registry ID in logs:', log);
+            console.log('Found Registry ID in logs:', log);
             registryLogFound = true;
           }
         });

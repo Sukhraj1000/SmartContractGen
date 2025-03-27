@@ -16,7 +16,7 @@ const NUM_TRANSACTIONS = 10; // Number of transactions to send
 const BATCH_SIZE = 5; // Number of transactions to send in parallel
 
 async function runTpsTest() {
-  console.log('\n🚀 Starting TPS (Transactions Per Second) Test\n');
+  console.log('\nStarting TPS (Transactions Per Second) Test\n');
   
   // Parse command line arguments
   const contractType = process.argv[2];
@@ -65,7 +65,7 @@ async function runTpsTest() {
       console.error('Error: Program not found on devnet. Has it been deployed?');
       process.exit(1);
     }
-    console.log('✅ Program exists on devnet');
+    console.log('Program exists on devnet');
   } catch (error) {
     console.error('Error checking program:', error);
     process.exit(1);
@@ -132,7 +132,7 @@ async function runTpsTest() {
         )
       );
       
-      console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1} confirmed`);
+      console.log(`Batch ${Math.floor(i/BATCH_SIZE) + 1} confirmed`);
     } catch (error) {
       console.error(`Error sending batch ${Math.floor(i/BATCH_SIZE) + 1}:`, error);
     }

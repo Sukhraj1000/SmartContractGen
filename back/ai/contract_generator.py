@@ -17,7 +17,14 @@ def get_ai_client():
     return client
 
 def extract_code_from_ai_response(response):
-    """Extract code from the AI response."""
+    """Extract code from the AI response.
+    
+    Args:
+        response: The AI response containing the contract code
+        
+    Returns:
+        str: The extracted contract code or None if extraction fails
+    """
     if not response or not response.content or not isinstance(response.content, list):
         print("AI Response error: No valid content received")
         return None
@@ -34,14 +41,13 @@ def extract_code_from_ai_response(response):
     return contract_code
 
 def get_template_for_contract_type(contract_type):
-    """
-    Get a template file for the specified contract type to use as a reference.
+    """Get a template file for the specified contract type to use as a reference.
     
     Args:
-        contract_type: Type of contract (escrow, crowdfunding)
+        contract_type (str): Type of contract (escrow, crowdfunding)
         
     Returns:
-        The template contract code or None if not found
+        str: The template contract code or None if not found
     """
     template_paths = {
         "escrow": "templates/escrow_template.rs",
@@ -63,8 +69,7 @@ def get_template_for_contract_type(contract_type):
         return None
 
 def generate_smart_contract(contract_type, schema, output_path=None):
-    """
-    Generate a smart contract based on the specified type and schema.
+    """Generate a smart contract based on the specified type and schema.
     
     Args:
         contract_type (str): Type of contract to generate (e.g., 'escrow', 'crowdfunding')

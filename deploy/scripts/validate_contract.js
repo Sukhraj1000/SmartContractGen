@@ -75,21 +75,21 @@ try {
 
 // Display results
 if (errors.length > 0) {
-  console.error('\n❌ Validation failed with errors:');
+  console.error('\nValidation failed with errors:');
   errors.forEach(error => console.error(`  - ${error}`));
 }
 
 if (warnings.length > 0) {
-  console.warn('\n⚠️ Warnings:');
+  console.warn('\nWarnings:');
   warnings.forEach(warning => console.warn(`  - ${warning}`));
 }
 
 if (errors.length === 0 && warnings.length === 0) {
-  console.log('\n✅ Contract validation completed successfully! No issues found.');
+  console.log('\nContract validation completed successfully! No issues found.');
 } else if (errors.length === 0) {
-  console.log('\n⚠️ Contract validation completed with warnings only. Can proceed with caution.');
+  console.log('\nContract validation completed with warnings only. Can proceed with caution.');
 } else {
-  console.error('\n❌ Please fix the errors before proceeding.');
+  console.error('\nPlease fix the errors before proceeding.');
   process.exit(1);
 }
 

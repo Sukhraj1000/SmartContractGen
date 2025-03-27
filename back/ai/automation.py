@@ -13,7 +13,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ai.contract_generator import generate_smart_contract
 
 class ContractAutomation:
-    """Class to automate the smart contract generation, building, and deployment process."""
+    """Class to automate the smart contract generation, building, and deployment process.
+    
+    This class provides methods to:
+    1. Generate smart contracts based on type and schema
+    2. Validate generated contracts
+    3. Build contracts using Anchor
+    4. Deploy contracts to specified networks
+    """
     
     def __init__(self):
         # Define paths
@@ -79,7 +86,15 @@ class ContractAutomation:
         return True
     
     def generate_contract(self, contract_type, schema):
-        """Generate a smart contract based on the type and schema."""
+        """Generate a smart contract based on the type and schema.
+        
+        Args:
+            contract_type (str): Type of contract to generate
+            schema (dict): Contract schema defining structure and parameters
+            
+        Returns:
+            bool: True if contract generation was successful, False otherwise
+        """
         print(f"Generating {contract_type} contract...")
         
         # Make sure we have a valid deploy directory structure
@@ -103,7 +118,11 @@ class ContractAutomation:
         return True
     
     def validate_contract(self):
-        """Run validation on the generated contract."""
+        """Run validation on the generated contract.
+        
+        Returns:
+            bool: True if validation was successful, False otherwise
+        """
         print("Validating contract...")
         
         try:

@@ -128,12 +128,12 @@ async function testInteroperability(options) {
   console.log('\nStep 3: Verifying Registry program deployment');
   try {
     const registryInfo = await connection.getAccountInfo(new PublicKey(registryProgramId));
-    if (!registryInfo) {
+    if (registryInfo) {
+      console.log(`Registry program ${registryProgramId} exists on devnet`);
+    } else {
       console.log(`Note: Registry program ${registryProgramId} not found on devnet.`);
       console.log('For a full interoperability test, deploy the Registry program first.');
       console.log('Continuing with simplified test...');
-    } else {
-      console.log(`✅ Registry program ${registryProgramId} exists on devnet`);
     }
   } catch (error) {
     console.error('Error checking Registry program:', error);
@@ -141,13 +141,13 @@ async function testInteroperability(options) {
   }
   
   // Test complete
-  console.log('\n✅ Interoperability Test Results:');
+  console.log('\nInteroperability Test Results:');
   if (registryIntegrationFound) {
     console.log('Your contract includes Registry integration, which enables');
     console.log('cross-contract communication and transaction monitoring.');
     console.log('\nTest PASSED: Contract can interoperate with the Registry.');
   } else {
-    console.log('⚠️ Registry integration not definitively detected.');
+    console.log('Warning: Registry integration not definitively detected.');
     console.log('If this is unexpected, please check:');
     console.log('1. The contract source code includes REGISTRY_PROGRAM_ID constant');
     console.log('2. The contract calls register_with_registry() in its functions');

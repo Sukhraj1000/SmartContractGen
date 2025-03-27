@@ -3,6 +3,12 @@
 Automation script for smart contract generation, building, and deployment.
 This script ties together the various components of the system to provide a smooth
 end-to-end experience for smart contract development.
+
+The script supports:
+1. Generating new contracts from templates
+2. Updating existing contracts
+3. Running the full automation pipeline
+4. Running the build loop for intelligent generation and fixing
 """
 
 import os
@@ -20,7 +26,16 @@ from ai.contract_generator import generate_smart_contract
 from ai.contract_updater import update_contract, smart_contract_build_loop
 
 def main():
-    """Main function to handle CLI commands."""
+    """Main function to handle CLI commands.
+    
+    This function:
+    1. Parses command line arguments
+    2. Executes the requested command
+    3. Returns appropriate exit codes
+    
+    Returns:
+        int: Exit code (0 for success, 1 for failure)
+    """
     parser = argparse.ArgumentParser(
         description="Smart Contract Automation Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,

@@ -7,6 +7,11 @@ import {
 import { ContentCopy, Download } from "@mui/icons-material";
 import axios from "axios";
 
+/**
+ * Contract output page component that displays generated smart contracts.
+ * Provides functionality to view, copy, and download contract code.
+ * Implements error handling and loading states.
+ */
 const ContractOutput = () => {
   const { contractId } = useParams();
   const [contract, setContract] = useState("");
@@ -17,6 +22,7 @@ const ContractOutput = () => {
   const [error, setError] = useState(false);
   const theme = useTheme();
 
+  // Fetch contract data from the server
   useEffect(() => {
     const fetchContract = async () => {
       try {
@@ -38,6 +44,7 @@ const ContractOutput = () => {
     fetchContract();
   }, [contractId]);
 
+  // Handle copying contract code to clipboard
   const handleCopyToClipboard = () => {
     if (contract) {
       navigator.clipboard.writeText(contract);
@@ -46,6 +53,7 @@ const ContractOutput = () => {
     }
   };
 
+  // Handle downloading contract code as a file
   const handleDownload = () => {
     if (contract) {
       const blob = new Blob([contract], { type: "text/plain" });
@@ -57,12 +65,13 @@ const ContractOutput = () => {
       document.body.appendChild(a);
       a.click();
       
-      // Clean up
+      // Clean up temporary elements and URLs
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }
   };
 
+  // Get formatted title for contract type
   const getContractTypeTitle = (type) => {
     switch (type) {
       case "escrow":
@@ -78,6 +87,7 @@ const ContractOutput = () => {
     }
   };
 
+  // Display loading state
   if (loading) {
     return (
       <Container maxWidth="md" sx={{ textAlign: "center", mt: 8 }}>
@@ -87,6 +97,7 @@ const ContractOutput = () => {
     );
   }
 
+  // Display error state
   if (error) {
     return (
       <Container maxWidth="md" sx={{ mt: 4 }}>
@@ -99,7 +110,9 @@ const ContractOutput = () => {
 
   return (
     <Container maxWidth="lg" sx={{ pb: 6 }}>
+      {/* Main content container */}
       <Paper elevation={3} sx={{ p: 4, borderRadius: 2, mb: 4, background: 'rgba(29, 38, 48, 0.75)' }}>
+        {/* Contract header */}
         <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', color: theme.palette.primary.light }}>
           {contractName}
         </Typography>
@@ -109,6 +122,7 @@ const ContractOutput = () => {
         
         <Divider sx={{ mb: 3 }} />
         
+        {/* Contract code display */}
         <Card elevation={2} sx={{ mb: 3 }}>
           <CardContent sx={{ p: 0 }}>
             <Box
@@ -138,6 +152,7 @@ const ContractOutput = () => {
           </CardContent>
         </Card>
         
+        {/* Action buttons */}
         <Box sx={{ display: "flex", justifyContent: "space-between", mt: 3 }}>
           <Tooltip title={copied ? "Copied!" : "Copy to clipboard"} arrow>
             <Button

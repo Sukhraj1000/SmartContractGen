@@ -16,11 +16,17 @@ import { motion } from "framer-motion";
 import { RocketLaunch, UploadFile } from "@mui/icons-material";
 import "../styles/global.css"; 
 
+/**
+ * Home page component that serves as the main entry point for the application.
+ * Provides navigation options for creating new contracts or uploading documents.
+ * Implements smooth transitions and responsive design.
+ */
 const Home = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const theme = useTheme();
 
+  // Handle navigation with loading animation
   const handleNavigation = (path) => {
     setLoading(true);
     setTimeout(() => {
@@ -40,12 +46,14 @@ const Home = () => {
         padding: "20px",
       }}
     >
+      {/* Animated content container */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
         style={{ width: '100%', maxWidth: 1000 }}
       >
+        {/* Main content paper with blur effect */}
         <Paper 
           elevation={4} 
           sx={{ 
@@ -57,6 +65,7 @@ const Home = () => {
           }}
         >
           <Grid container spacing={4} direction="column" alignItems="center">
+            {/* Header section */}
             <Grid item>
               <Typography variant="h2" fontWeight="bold" gutterBottom>
                 Solana Smart Contract Generator
@@ -66,13 +75,16 @@ const Home = () => {
               </Typography>
             </Grid>
 
+            {/* Action buttons section */}
             <Grid item container spacing={4} justifyContent="center" sx={{ maxWidth: "800px" }}>
               {loading ? (
+                /* Loading indicator */
                 <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
                   <CircularProgress size={60} />
                 </Box>
               ) : (
                 <>
+                  {/* New contract button */}
                   <Grid item xs={12} sm={6}>
                     <Card elevation={2} sx={{ height: '100%', borderRadius: 2, overflow: 'hidden' }}>
                       <CardContent sx={{ p: 0, height: '100%' }}>
@@ -95,6 +107,7 @@ const Home = () => {
                     </Card>
                   </Grid>
 
+                  {/* Document upload button */}
                   <Grid item xs={12} sm={6}>
                     <Card elevation={2} sx={{ height: '100%', borderRadius: 2, overflow: 'hidden' }}>
                       <CardContent sx={{ p: 0, height: '100%' }}>
@@ -127,6 +140,7 @@ const Home = () => {
               )}
             </Grid>
 
+            {/* Documentation link section */}
             <Grid item mt={4}>
               <Typography variant="body1">
                 Need Help?{" "}

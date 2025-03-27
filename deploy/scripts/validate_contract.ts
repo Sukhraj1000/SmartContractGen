@@ -16,13 +16,13 @@ const execAsync = promisify(exec);
  * 3. Provides metrics on compute units and transaction size
  */
 async function main() {
-  console.log("🔍 Starting contract validation...");
+  console.log("Starting contract validation...");
 
   // Start a local validator for testing
-  console.log("🚀 Starting local validator...");
+  console.log("Starting local validator...");
   try {
     await execAsync("solana-test-validator --reset --quiet &");
-    console.log("✅ Local validator started");
+    console.log("Local validator started");
     
     // Wait for validator to start
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -36,7 +36,7 @@ async function main() {
     console.log("Switched to local validator");
     
     // Build the program
-    console.log("🔨 Building program...");
+    console.log("Building program...");
     await execAsync("anchor build");
     console.log("Program built successfully");
     
@@ -100,39 +100,39 @@ async function main() {
     }
     
     // Get program logs to analyze compute units
-    console.log("📊 Analyzing program performance...");
+    console.log("Analyzing program performance...");
     const txLogs = await execAsync("solana logs --limit 10");
     
     // Check for CU usage in logs (simplified)
     const cuMatch = txLogs.stdout.match(/consumed (\d+) of \d+ compute units/);
     if (cuMatch) {
       const cuUsed = parseInt(cuMatch[1]);
-      console.log(`ℹ️ Program used approximately ${cuUsed} compute units`);
+      console.log(`Program used approximately ${cuUsed} compute units`);
       
       if (cuUsed > 180000) {
-        console.warn("⚠️ WARNING: High compute unit usage (>180k)");
+        console.warn("Warning: High compute unit usage (>180k)");
       } else {
-        console.log("✅ Compute unit usage is acceptable");
+        console.log("Compute unit usage is acceptable");
       }
     }
     
-    console.log("🎉 Contract validation successful!");
+    console.log("Contract validation successful!");
     
     // Cleanup
-    console.log("🧹 Cleaning up...");
+    console.log("Cleaning up...");
     await execAsync("pkill solana-test-validator");
     
     // Restore original config
     if (currentUrl) {
       await execAsync(`solana config set --url "${currentUrl}"`);
-      console.log(`✅ Restored original RPC URL: ${currentUrl}`);
+      console.log(`Restored original RPC URL: ${currentUrl}`);
     }
     
-    console.log("✅ Validation complete, contract ready for Devnet deployment");
-    console.log("💡 To deploy to Devnet, run: solana config set --url https://api.devnet.solana.com && anchor deploy --provider.cluster devnet");
+    console.log("Validation complete, contract ready for Devnet deployment");
+    console.log("To deploy to Devnet, run: solana config set --url https://api.devnet.solana.com && anchor deploy --provider.cluster devnet");
     
   } catch (error) {
-    console.error("❌ Validation failed:", error);
+    console.error("Validation failed:", error);
     // Try to kill test validator on error
     try {
       await execAsync("pkill solana-test-validator");
@@ -175,7 +175,7 @@ async function testEscrowContract(program: anchor.Program, provider: anchor.Anch
     })
     .rpc();
     
-  console.log("✅ Escrow initialized successfully");
+  console.log("Escrow initialized successfully");
 }
 
 /**
@@ -228,7 +228,7 @@ async function testVestingContract(program: anchor.Program, provider: anchor.Anc
       throw new Error("No compatible vesting creation method found");
     }
     
-    console.log("✅ Vesting schedule created successfully");
+    console.log("Vesting schedule created successfully");
   } catch (error) {
     console.error("Error testing vesting contract:", error);
     throw error;
@@ -284,7 +284,7 @@ async function testCrowdfundingContract(program: anchor.Program, provider: ancho
       throw new Error("No compatible campaign creation method found");
     }
     
-    console.log("✅ Campaign created successfully");
+    console.log("Campaign created successfully");
     
     // Try making a contribution if the method exists
     if (methods.contribute) {
@@ -300,7 +300,7 @@ async function testCrowdfundingContract(program: anchor.Program, provider: ancho
         clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
       }).rpc();
       
-      console.log("✅ Contribution made successfully");
+      console.log("Contribution made successfully");
     }
   } catch (error) {
     console.error("Error testing crowdfunding contract:", error);
@@ -318,7 +318,7 @@ async function testGenericContract(program: anchor.Program, provider: anchor.Anc
     // Get the first instruction from the IDL
     const firstInstruction = program.idl.instructions[0];
     if (!firstInstruction) {
-      console.log("⚠️ No instructions found in IDL");
+      console.log("Warning: No instructions found in IDL");
       return;
     }
     
@@ -330,7 +330,7 @@ async function testGenericContract(program: anchor.Program, provider: anchor.Anc
     console.log(`Required accounts: ${requiredAccounts.join(', ')}`);
     
     // Not executing instruction - just validating structure
-    console.log("✅ Contract structure validated");
+    console.log("Contract structure validated");
   } catch (error) {
     console.error("Error in generic contract test:", error);
     throw error;

@@ -318,9 +318,19 @@ pub struct CampaignAccount {
 }
 
 impl CampaignAccount {
-    // Size calculation:
-    // Pubkey (32) + String (4+50) + String (4+255) + u64 (8) + u64 (8) + i64 (8) + 
-    // bool (1) + bool (1) + u64 (8) + u8 (1) + i64 (8) + i64 (8)
+    // Size calculation in bytes:
+    // - Pubkey: 32 bytes
+    // - Name string: 4 bytes (length) + 50 bytes (max content)
+    // - Description string: 4 bytes (length) + 255 bytes (max content)
+    // - Target amount: 8 bytes (u64)
+    // - Raised amount: 8 bytes (u64)
+    // - End time: 8 bytes (i64)
+    // - Is active flag: 1 byte (bool)
+    // - Is successful flag: 1 byte (bool)
+    // - Seed: 8 bytes (u64)
+    // - Bump: 1 byte (u8)
+    // - Created at: 8 bytes (i64)
+    // - Last updated at: 8 bytes (i64)
     pub const SIZE: usize = 32 + 4 + 50 + 4 + 255 + 8 + 8 + 8 + 1 + 1 + 8 + 1 + 8 + 8;
 }
 
@@ -332,10 +342,10 @@ pub enum CampaignError {
     #[msg("End time must be in the future")]
     InvalidEndTime,
     
-    #[msg("Campaign name too long (max 50 chars)")]
+    #[msg("Campaign name too long (maximum 50 characters)")]
     NameTooLong,
     
-    #[msg("Campaign description too long (max 255 chars)")]
+    #[msg("Campaign description too long (maximum 255 characters)")]
     DescriptionTooLong,
     
     #[msg("Campaign is not active")]
@@ -353,13 +363,13 @@ pub enum CampaignError {
     #[msg("Campaign was successful, no refunds available")]
     CampaignSuccessful,
     
-    #[msg("Unauthorized access")]
-    Unauthorized,
+    #[msg("Unauthorised access")]
+    Unauthorised,
     
     #[msg("Insufficient funds")]
     InsufficientFunds,
     
-    #[msg("Math overflow error")]
+    #[msg("Mathematical overflow error")]
     AmountOverflow,
     
     #[msg("All funds must be withdrawn or refunded before closing")]

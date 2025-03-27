@@ -16,17 +16,42 @@ app = FastAPI(title="SmartContractGen API",
               description="API for generating and updating Solana smart contracts")
 
 class ContractGenerationRequest(BaseModel):
+    """Request model for contract generation.
+    
+    Attributes:
+        contract_type (str): Type of contract (escrow, token_vesting, crowdfunding)
+        schema (dict): Contract schema defining structure and parameters
+        program_id (str, optional): Program ID to use for the contract
+    """
     contract_type: str  # escrow, token_vesting, crowdfunding
     schema: Dict[str, Any]
     program_id: Optional[str] = None  # Optional program ID to use
 
 class ContractUpdateRequest(BaseModel):
+    """Request model for contract updates.
+    
+    Attributes:
+        contract_type (str): Type of contract (escrow, token_vesting, crowdfunding)
+        contract_code (str): Existing contract code to update
+        update_requirements (str): Description of updates needed
+        program_id (str, optional): Program ID to use for the contract
+    """
     contract_type: str  # escrow, token_vesting, crowdfunding
     contract_code: str  # Existing contract code
     update_requirements: str  # Description of updates needed
     program_id: Optional[str] = None  # Optional program ID to use
 
 class ContractResponse(BaseModel):
+    """Response model for contract operations.
+    
+    Attributes:
+        success (bool): Whether the operation was successful
+        contract_code (str, optional): Generated or updated contract code
+        security_score (float, optional): Security score of the contract
+        message (str): Response message
+        output_path (str, optional): Path where the contract was saved
+        program_id (str, optional): Program ID of the contract
+    """
     success: bool
     contract_code: Optional[str] = None
     security_score: Optional[float] = None

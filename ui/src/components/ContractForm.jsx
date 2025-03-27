@@ -56,6 +56,7 @@ const ContractForm = () => {
     }
   };
 
+  // Handle contract type selection change
   const handleContractTypeChange = (event) => {
     const newType = event.target.value;
     setFormData({
@@ -66,6 +67,7 @@ const ContractForm = () => {
     });
   };
 
+  // Handle party information updates
   const handlePartyChange = (partyKey, value) => {
     setFormData(prev => ({
       ...prev,
@@ -76,6 +78,7 @@ const ContractForm = () => {
     }));
   };
 
+  // Handle parameter value updates
   const handleParameterChange = (paramKey, value) => {
     setFormData(prev => ({
       ...prev,
@@ -86,7 +89,7 @@ const ContractForm = () => {
     }));
   };
 
-  // Check if all required fields are filled
+  // Validate form completion status
   useEffect(() => {
     if (!formData.contract_type || !formData.contract_name) {
       setIsComplete(false);
@@ -99,12 +102,12 @@ const ContractForm = () => {
       return;
     }
 
-    // Check required parties
+    // Verify all required parties are specified
     const hasAllParties = config.parties.every(party => 
       party.required ? !!formData.parties[party.key] : true
     );
 
-    // Check required parameters
+    // Verify all required parameters are specified
     const hasAllParams = config.parameters.every(param => 
       param.required ? !!formData.parameters[param.key] : true
     );
@@ -112,6 +115,7 @@ const ContractForm = () => {
     setIsComplete(hasAllParties && hasAllParams);
   }, [formData]);
 
+  // Handle form submission
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!isComplete) return;

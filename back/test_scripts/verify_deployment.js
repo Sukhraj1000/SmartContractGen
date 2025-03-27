@@ -55,9 +55,9 @@ async function verifyDeployment(programId) {
     const hasRegistryId = programData.includes(registryIdBytes);
     
     if (hasRegistryId) {
-      console.log(`✅ Registry Program ID (${REGISTRY_ID}) found in program binary`);
+      console.log(`Registry Program ID (${REGISTRY_ID}) found in program binary`);
     } else {
-      console.warn(`⚠️ Registry Program ID not found in binary. This doesn't necessarily mean it's missing from the code.`);
+      console.warn(`Registry Program ID not found in binary. This does not necessarily mean it's missing from the code.`);
     }
     
     console.log('\nDeployment verification completed successfully!');

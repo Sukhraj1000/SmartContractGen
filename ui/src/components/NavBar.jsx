@@ -19,15 +19,21 @@ import {
   Menu as MenuIcon
 } from '@mui/icons-material';
 
+/**
+ * Navigation bar component that provides access to main application routes.
+ * Implements responsive design with mobile menu support.
+ */
 const NavBar = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [anchorEl, setAnchorEl] = React.useState(null);
   
+  // Handle mobile menu opening
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
   };
   
+  // Handle mobile menu closing
   const handleMenuClose = () => {
     setAnchorEl(null);
   };
@@ -43,6 +49,7 @@ const NavBar = () => {
     >
       <Container>
         <Toolbar sx={{ justifyContent: 'space-between' }}>
+          {/* Application title with link to home page */}
           <Typography
             variant="h6"
             component={RouterLink}
@@ -58,8 +65,10 @@ const NavBar = () => {
             Smart Contract Generator
           </Typography>
           
+          {/* Responsive navigation menu */}
           {isMobile ? (
             <>
+              {/* Mobile menu button */}
               <IconButton
                 color="inherit"
                 aria-label="menu"
@@ -68,6 +77,7 @@ const NavBar = () => {
               >
                 <MenuIcon />
               </IconButton>
+              {/* Mobile menu dropdown */}
               <Menu
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
@@ -106,6 +116,7 @@ const NavBar = () => {
               </Menu>
             </>
           ) : (
+            /* Desktop navigation buttons */
             <Box>
               <Button 
                 color="inherit" 

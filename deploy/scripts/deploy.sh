@@ -26,15 +26,15 @@ print_header() {
 }
 
 print_success() {
-  echo -e "${GREEN}✅ $1${NC}"
+  echo -e "${GREEN}Success: $1${NC}"
 }
 
 print_warning() {
-  echo -e "${YELLOW}⚠️ $1${NC}"
+  echo -e "${YELLOW}Warning: $1${NC}"
 }
 
 print_error() {
-  echo -e "${RED}❌ $1${NC}"
+  echo -e "${RED}Error: $1${NC}"
 }
 
 # Process command line arguments

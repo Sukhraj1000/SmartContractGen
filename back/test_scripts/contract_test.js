@@ -124,13 +124,13 @@ async function testContract(options) {
     console.log('Wallet balance:', walletBalance, 'SOL');
     
     if (walletBalance < 0.1) {
-      console.warn('⚠️ Wallet balance is low. Some tests may fail due to insufficient funds.');
+      console.warn('Warning: Wallet balance is low. Some tests may fail due to insufficient funds.');
     }
     
     // Load IDL
     const idl = loadIdl(contractType);
     if (!idl) {
-      console.warn('⚠️ No IDL found. Will attempt to interact with contract using basic instructions.');
+      console.warn('Warning: No IDL found. Will attempt to interact with contract using basic instructions.');
     }
     
     // Create program instance if IDL is available
@@ -138,9 +138,9 @@ async function testContract(options) {
     if (idl) {
       try {
         program = new Program(idl, programId, provider);
-        console.log('✅ Program instance created successfully');
+        console.log('Program instance created successfully');
       } catch (error) {
-        console.error('❌ Failed to create program instance:', error);
+        console.error('Failed to create program instance:', error);
       }
     }
     
@@ -149,16 +149,16 @@ async function testContract(options) {
     const programInfo = await connection.getAccountInfo(new PublicKey(programId));
     
     if (!programInfo) {
-      console.error('❌ Program not found on devnet!');
+      console.error('Program not found on devnet!');
       return false;
     }
     
-    console.log('✅ Program exists on devnet');
+    console.log('Program exists on devnet');
     console.log('  Program size:', programInfo.data.length, 'bytes');
     console.log('  Executable:', programInfo.executable);
     
     if (!programInfo.executable) {
-      console.error('❌ Program is not executable!');
+      console.error('Program is not executable!');
       return false;
     }
     
@@ -169,9 +169,9 @@ async function testContract(options) {
     const hasRegistryId = programData.includes(Buffer.from(REGISTRY_ID));
     
     if (hasRegistryId) {
-      console.log(`✅ Registry Program ID (${REGISTRY_ID}) found in program binary`);
+      console.log(`Registry Program ID (${REGISTRY_ID}) found in program binary`);
     } else {
-      console.warn(`⚠️ Registry Program ID not found in binary. Further testing required.`);
+      console.warn(`Registry Program ID not found in binary. Further testing required.`);
     }
     
     // 3. Contract-specific testing

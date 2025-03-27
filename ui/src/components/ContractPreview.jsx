@@ -35,7 +35,7 @@ const ContractPreview = ({ contractType, formData, fieldConfigs, isComplete }) =
 
   const config = fieldConfigs[contractType];
 
-  // Prepare JSON preview
+  // Prepare JSON data for preview
   const jsonData = {
     contract_type: contractType,
     contract_name: formData.contract_name || "[Contract Name]",
@@ -43,26 +43,26 @@ const ContractPreview = ({ contractType, formData, fieldConfigs, isComplete }) =
     parties: formData.parties || {}
   };
 
-  // Helper to format JSON with indentation
+  // Format JSON with proper indentation for display
   const formatJson = (obj) => {
     return JSON.stringify(obj, null, 2);
   };
 
-  // Helper function to explain each parameter
+  // Provide detailed explanations for each parameter type
   const getParameterExplanation = (key) => {
     const explanations = {
-      // Escrow parameters
-      amount: "The amount of tokens/currency to be held in escrow",
-      currency: "The currency type to be used (SOL or other tokens)",
+      // Escrow contract parameters
+      amount: "The amount of tokens or currency to be held in escrow",
+      currency: "The type of currency to be used (SOL or other tokens)",
       release_condition: "Conditions that must be met to release the funds",
 
-      // Crowdfunding parameters
+      // Crowdfunding contract parameters
       campaign_name: "Name of the crowdfunding campaign",
       description: "Detailed description of the campaign",
       funding_goal: "Target amount to be raised",
       deadline: "Number of days the campaign will run for",
       
-      // Custom parameters
+      // Custom contract parameters
       custom_description: "Detailed description of custom contract requirements",
       functionality: "Specific functionality the contract should implement"
     };
@@ -70,7 +70,7 @@ const ContractPreview = ({ contractType, formData, fieldConfigs, isComplete }) =
     return explanations[key] || "Parameter for the smart contract";
   };
 
-  // Helper function to explain each party role
+  // Provide detailed explanations for each party role
   const getPartyExplanation = (key) => {
     const explanations = {
       buyer: "Party who pays funds into the escrow",
@@ -83,7 +83,7 @@ const ContractPreview = ({ contractType, formData, fieldConfigs, isComplete }) =
     return explanations[key] || "Participant in the smart contract";
   };
 
-  // Find missing required fields
+  // Identify missing required fields for form validation
   const getMissingRequiredFields = () => {
     const missingFields = [];
     

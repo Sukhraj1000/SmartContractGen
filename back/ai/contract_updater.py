@@ -396,17 +396,18 @@ def integrate_keys_into_contract(contract_code, contract_type, contract_id=None)
 
 
 def smart_contract_build_loop(contract_type, schema, max_attempts=5):
-    """
-    Implements a loop between generating smart contract code and running anchor build 
+    """Implements a loop between generating smart contract code and running anchor build 
     until a successful build is achieved.
     
     Args:
-        contract_type: Type of contract (escrow, crowdfunding)
-        schema: JSON schema of the contract structure
-        max_attempts: Maximum number of build attempts before giving up
+        contract_type (str): Type of contract (escrow, crowdfunding)
+        schema (dict): JSON schema of the contract structure
+        max_attempts (int, optional): Maximum number of build attempts before giving up. Defaults to 5.
         
     Returns:
-        Tuple of (success status, program_id)
+        tuple: A tuple containing:
+            - bool: Success status (True if build succeeded)
+            - str: Program ID if successful, None otherwise
     """
     # Add parent dir to path to allow local imports
     import sys, os, subprocess, re
