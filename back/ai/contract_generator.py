@@ -175,7 +175,7 @@ def generate_smart_contract(contract_type, schema, output_path=None):
     """
     
     # Generate prompt for AI
-        prompt = f"""
+    prompt = f"""
         Generate a secure and deployable Solana smart contract using the Anchor framework with the following specification:
         
         Contract Type: {contract_type}
