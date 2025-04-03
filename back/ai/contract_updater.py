@@ -409,9 +409,11 @@ def smart_contract_build_loop(contract_type, schema, max_attempts=5):
             - bool: Success status (True if build succeeded)
             - str: Program ID if successful, None otherwise
     """
-    # Add parent dir to path to allow local imports
-    import sys, os, subprocess, re
+    # Force unbuffered output for real-time logs
+    import sys, os, subprocess, re, time
     from pathlib import Path
+    
+    # Add parent dir to path to allow local imports
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     
     from ai.contract_generator import generate_smart_contract
@@ -425,7 +427,93 @@ def smart_contract_build_loop(contract_type, schema, max_attempts=5):
     # Ensure the target directory exists
     os.makedirs(deploy_programs_dir, exist_ok=True)
     
-    # Pre-process: Ensure Anchor.toml has required features
+    # Quietly set up environment
+    _setup_build_environment(deploy_dir)
+    
+    attempt = 0
+    program_id = None
+    error_log = ""
+    
+    print(f"Starting smart contract build loop for {contract_type} contract...")
+    
+    while attempt < max_attempts:
+        attempt += 1
+        print(f"\n--- Build Attempt {attempt}/{max_attempts} ---")
+        
+        # Generate or update contract
+        if attempt == 1:
+            contract_code = generate_smart_contract(
+                contract_type=contract_type,
+                schema=schema,
+                output_path=str(lib_rs_path)
+            )
+        else:
+            contract_code = _update_contract_with_errors(lib_rs_path, contract_type, attempt, error_log)
+        
+        if not contract_code:
+            print(f"Failed to generate/update contract on attempt {attempt}")
+            continue
+        
+        # Run anchor build (quietly)
+        try:
+            print("Running anchor build...")
+            os.chdir(deploy_dir)
+            
+            # Clean previous build artifacts silently
+            subprocess.run(
+                ["cargo", "clean"],
+                capture_output=True,
+                text=True
+            )
+            
+            # Run the build silently
+            build_result = subprocess.run(
+                ["anchor", "build"],
+                capture_output=True,
+                text=True
+            )
+            
+            # Check for build success
+            if build_result.returncode == 0:
+                print("Build successful!")
+                
+                # Extract program ID (quietly)
+                program_id = _extract_program_id(deploy_dir, lib_rs_path)
+                if program_id:
+                    print(f"Extracted program ID: {program_id}")
+                
+                return True, program_id
+            
+            # If build failed, extract error summary
+            error_log = build_result.stderr
+            if not error_log:
+                error_log = build_result.stdout
+            
+            # Only show a concise error summary
+            error_summary = _extract_error_summary(error_log)
+            print(f"Build failed. Error summary:\n{error_summary}")
+            
+            # Apply automatic fixes for common errors
+            _apply_automatic_fixes(lib_rs_path, error_log)
+                        
+        except Exception as e:
+            import traceback
+            print(f"Error in build process: {str(e)}")
+            error_log = f"Exception occurred: {str(e)}"
+        
+        finally:
+            # Return to original directory
+            os.chdir(root_dir)
+    
+    print(f"Maximum attempts ({max_attempts}) reached without successful build")
+    return False, program_id
+
+
+def _setup_build_environment(deploy_dir):
+    """Set up the build environment silently."""
+    import os
+    
+    # Set up Anchor.toml
     anchor_toml_path = deploy_dir / "Anchor.toml"
     if os.path.exists(anchor_toml_path):
         with open(anchor_toml_path, 'r') as f:
@@ -433,7 +521,6 @@ def smart_contract_build_loop(contract_type, schema, max_attempts=5):
         
         # Check if idl-build feature is missing
         if 'idl-build' not in anchor_toml:
-            print("Adding idl-build feature to Anchor.toml")
             anchor_toml = anchor_toml.replace(
                 "[features]", 
                 "[features]\nidl-build = true"
@@ -441,23 +528,20 @@ def smart_contract_build_loop(contract_type, schema, max_attempts=5):
             with open(anchor_toml_path, 'w') as f:
                 f.write(anchor_toml)
     
-    # Pre-process: Ensure Cargo.toml has required features
+    # Set up Cargo.toml
     cargo_toml_path = deploy_dir / "programs" / "deploy" / "Cargo.toml"
     if os.path.exists(cargo_toml_path):
         with open(cargo_toml_path, 'r') as f:
             cargo_toml = f.read()
         
-        # Add idl-build feature if missing
+        # Add necessary features
         if 'idl-build' not in cargo_toml:
-            print("Adding idl-build feature to Cargo.toml")
             cargo_toml = cargo_toml.replace(
                 "[features]",
                 "[features]\nidl-build = [\"anchor-lang/idl-build\"]"
             )
         
-        # Ensure anchor-lang has init-if-needed feature
         if 'init-if-needed' not in cargo_toml:
-            print("Adding init-if-needed feature to anchor-lang")
             cargo_toml = cargo_toml.replace(
                 "anchor-lang = { workspace = true }",
                 "anchor-lang = { workspace = true, features = [\"init-if-needed\"] }"
@@ -465,7 +549,6 @@ def smart_contract_build_loop(contract_type, schema, max_attempts=5):
         
         # Add optimization settings for stack size if missing
         if '[profile.release]' not in cargo_toml:
-            print("Adding stack size optimization to Cargo.toml")
             cargo_toml += """
 [profile.release]
 overflow-checks = true
@@ -478,267 +561,219 @@ codegen-units = 1
 """
         with open(cargo_toml_path, 'w') as f:
             f.write(cargo_toml)
+
+
+def _update_contract_with_errors(lib_rs_path, contract_type, attempt, error_log):
+    """Update the contract based on previous errors."""
+    import os, re
     
-    attempt = 0
-    program_id = None
-    error_log = ""
+    if not os.path.exists(lib_rs_path):
+        return None
     
-    print(f"Starting smart contract build loop for {contract_type} contract...")
+    with open(lib_rs_path, 'r') as f:
+        contract_code = f.read()
     
-    while attempt < max_attempts:
-        attempt += 1
-        print(f"\n--- Build Attempt {attempt}/{max_attempts} ---")
+    if not contract_code:
+        return None
+    
+    # Extract program ID if it exists
+    extracted_id = extract_program_id_from_contract(contract_code)
+    
+    # Add specific error handling instructions based on previous errors
+    specific_instructions = ""
+    if "Stack offset" in error_log or "exceeded max offset" in error_log:
+        specific_instructions += """
+        1. Minimize large stack variables in all functions
+        2. Split large structs into smaller components
+        3. Remove any unnecessary large arrays or buffers
+        4. Use references instead of copying large data structures
+        """
+    
+    if "idl-build" in error_log:
+        specific_instructions += """
+        Ensure all features are properly defined and imported.
+        """
         
-        # 1. Generate or update contract
-        if attempt == 1:
-            # First attempt - generate a new contract
-            contract_code = generate_smart_contract(
-                contract_type=contract_type,
-                schema=schema,
-                output_path=str(lib_rs_path)
-            )
-        else:
-            # Subsequent attempts - update based on error logs
-            contract_code = None
-            if os.path.exists(lib_rs_path):
-                with open(lib_rs_path, 'r') as f:
-                    contract_code = f.read()
-                
-                if contract_code:
-                    # Extract program ID if it exists
-                    extracted_id = extract_program_id_from_contract(contract_code)
-                    if extracted_id:
-                        program_id = extracted_id
-                    
-                    # Add specific error handling instructions based on previous errors
-                    specific_instructions = ""
-                    if "Stack offset" in error_log or "exceeded max offset" in error_log:
-                        specific_instructions += """
-                        1. Minimize large stack variables in all functions
-                        2. Split large structs into smaller components
-                        3. Remove any unnecessary large arrays or buffers
-                        4. Use references instead of copying large data structures
-                        """
-                    
-                    if "idl-build" in error_log:
-                        specific_instructions += """
-                        Ensure all features are properly defined and imported.
-                        """
-                    
-                    # Update contract with error messages and specific instructions
-                    update_req = f"Fix compilation errors from attempt {attempt-1}: {error_log}"
-                    if specific_instructions:
-                        update_req += f"\n\nSpecific fixes needed:\n{specific_instructions}"
-                    
-                    contract_code = update_contract(
-                        contract_type=contract_type,
-                        contract_code=contract_code,
-                        update_requirements=update_req,
-                        output_path=str(lib_rs_path)
-                    )
-        
-        if not contract_code:
-            print(f"Failed to generate/update contract on attempt {attempt}")
-            continue
-        
-        # 2. Run anchor build
-        try:
-            print("Running anchor build...")
-            os.chdir(deploy_dir)
-            
-            # Clean previous build artifacts first
-            clean_result = subprocess.run(
-                ["cargo", "clean"],
+    if "cannot use the `?` operator" in error_log or "E0277" in error_log:
+        specific_instructions += """
+        1. CRITICAL: Remove any usage of the ? operator in methods that don't return Result or Option
+        2. Inside #[derive(Accounts)] structs, do not use the ? operator
+        3. Replace Clock::get()? with Clock::get().expect("Failed to get clock")
+        4. Only use ? operator in functions that return Result<T, E>
+        """
+    
+    if "E0382" in error_log or "borrow of moved value" in error_log:
+        specific_instructions += """
+        1. Add .clone() to all String values that are used after being moved
+        2. Use references (&value) instead of moving values where possible
+        3. When assigning a String to a struct field, always clone() it if used later
+        """
+    
+    # Update contract with error messages and specific instructions
+    update_req = f"Fix compilation errors from attempt {attempt-1}.\nMain errors: {error_log}"
+    if specific_instructions:
+        update_req += f"\n\nSpecific fixes needed:\n{specific_instructions}"
+    
+    print("Attempting to fix compilation errors...")
+    
+    return update_contract(
+        contract_type=contract_type,
+        contract_code=contract_code,
+        update_requirements=update_req,
+        output_path=str(lib_rs_path)
+    )
+
+
+def _extract_program_id(deploy_dir, lib_rs_path):
+    """Extract program ID from keypair silently."""
+    import os, subprocess, re
+    
+    try:
+        keypair_path = os.path.join(deploy_dir, "target", "deploy", "deploy-keypair.json")
+        if os.path.exists(keypair_path):
+            result = subprocess.run(
+                ["solana", "address", "-k", keypair_path],
                 capture_output=True,
                 text=True
             )
-            
-            # Run the build
-            build_result = subprocess.run(
-                ["anchor", "build"],
-                capture_output=True,
-                text=True
-            )
-            
-            # 3. Check for build success
-            if build_result.returncode == 0:
-                print("Build successful!")
+            if result.returncode == 0:
+                program_id = result.stdout.strip()
                 
-                # 4. Extract program ID from keypair
-                try:
-                    keypair_path = os.path.join(deploy_dir, "target", "deploy", "deploy-keypair.json")
-                    if os.path.exists(keypair_path):
-                        result = subprocess.run(
-                            ["solana", "address", "-k", keypair_path],
+                # Update the contract with the correct program ID if needed
+                if program_id and os.path.exists(lib_rs_path):
+                    with open(lib_rs_path, 'r') as f:
+                        current_code = f.read()
+                    
+                    if f'declare_id!("{program_id}");' not in current_code:
+                        # Replace program ID in the contract
+                        updated_code = re.sub(
+                            r'declare_id!\("([^"]*)"\);',
+                            f'declare_id!("{program_id}");',
+                            current_code
+                        )
+                        
+                        # If no declare_id! found, add it after imports
+                        if "declare_id!" not in updated_code:
+                            import_end = updated_code.find(";") + 1
+                            updated_code = updated_code[:import_end] + f'\n\ndeclare_id!("{program_id}");\n\n' + updated_code[import_end:]
+                        
+                        with open(lib_rs_path, 'w') as f:
+                            f.write(updated_code)
+                        
+                        # Build again with the correct program ID (silently)
+                        subprocess.run(
+                            ["anchor", "build"],
                             capture_output=True,
                             text=True
                         )
-                        if result.returncode == 0:
-                            program_id = result.stdout.strip()
-                            print(f"Extracted program ID: {program_id}")
-                            
-                            # Update the contract with the correct program ID if needed
-                            if program_id and os.path.exists(lib_rs_path):
-                                with open(lib_rs_path, 'r') as f:
-                                    current_code = f.read()
-                                
-                                if f'declare_id!("{program_id}");' not in current_code:
-                                    # Replace program ID in the contract
-                                    updated_code = re.sub(
-                                        r'declare_id!\("([^"]*)"\);',
-                                        f'declare_id!("{program_id}");',
-                                        current_code
-                                    )
-                                    
-                                    # If no declare_id! found, add it after imports
-                                    if "declare_id!" not in updated_code:
-                                        import_end = updated_code.find(";") + 1
-                                        updated_code = updated_code[:import_end] + f'\n\ndeclare_id!("{program_id}");\n\n' + updated_code[import_end:]
-                                    
-                                    with open(lib_rs_path, 'w') as f:
-                                        f.write(updated_code)
-                                    
-                                    print(f"Updated contract with correct program ID: {program_id}")
-                                    
-                                    # Build again with the correct program ID
-                                    build_result = subprocess.run(
-                                        ["anchor", "build"],
-                                        capture_output=True,
-                                        text=True
-                                    )
-                                    
-                                    if build_result.returncode != 0:
-                                        print("Failed to build after updating program ID. Using previous build.")
-                except Exception as e:
-                    print(f"Error extracting or updating program ID: {str(e)}")
-                    # Continue with the existing program ID if extraction fails
                 
-                # Store basic program info in a JSON file for reference
-                if program_id:
-                    info_path = os.path.join(deploy_dir, "program-info.json")
-                    with open(info_path, 'w') as f:
-                        json.dump({
-                            "programId": program_id,
-                            "contractType": contract_type,
-                            "buildTime": time.strftime("%Y-%m-%d %H:%M:%S")
-                        }, f, indent=2)
+                # Store info in json file
+                info_path = os.path.join(deploy_dir, "program-info.json")
+                import json, time
+                with open(info_path, 'w') as f:
+                    json.dump({
+                        "programId": program_id,
+                        "contractType": os.path.basename(lib_rs_path).replace(".rs", ""),
+                        "buildTime": time.strftime("%Y-%m-%d %H:%M:%S")
+                    }, f, indent=2)
                 
-                return True, program_id
-            
-            # 5. Extract error logs for next attempt
-            error_log = build_result.stderr
-            if not error_log:
-                error_log = build_result.stdout
-            
-            # Categorize errors for better handling
-            error_categories = {
-                'stack_size': {
-                    'patterns': ['Stack offset', 'exceeded max offset', 'stack usage', 'large stack variables'],
-                    'fixes': [
-                        "Minimizing stack variable sizes",
-                        "Converting large arrays to references",
-                        "Splitting large functions",
-                        "Using &[u8] instead of Vec<u8>",
-                    ]
-                },
-                'type_safety': {
-                    'patterns': ['mismatched types', 'expected `i64`', 'expected `u64`', 'overflow', 'underflow'],
-                    'fixes': [
-                        "Adding proper type conversions with try_into()",
-                        "Using checked arithmetic operations",
-                        "Implementing proper error handling",
-                    ]
-                },
-                'anchor_structure': {
-                    'patterns': ['missing lifetime', 'trait `Bumps`', 'try_accounts', 'no method named `get`'],
-                    'fixes': [
-                        "Preserving #[derive(Accounts)]",
-                        "Adding missing lifetime parameters",
-                        "Using correct bump access syntax",
-                    ]
-                }
-            }
-            
-            # Analyze errors and collect fixes
-            needed_fixes = []
-            for category, info in error_categories.items():
-                if any(pattern in error_log for pattern in info['patterns']):
-                    needed_fixes.extend(info['fixes'])
-            
-            # Filter and format error messages
-            error_lines = []
-            for line in error_log.split('\n'):
-                if any(pattern in line.lower() for category in error_categories.values() for pattern in category['patterns']):
-                    error_lines.append(line.strip())
-            
-            error_summary = "\n".join(error_lines[-5:])  # Only use last 5 relevant errors
-            
-            if needed_fixes:
-                print(f"\nDetected issues requiring fixes:")
-                for fix in set(needed_fixes):  # Remove duplicates
-                    print(f"- {fix}")
-            
-            # Update error log with categorized information
-            error_log = f"""
-            Error Summary:
-            {error_summary}
-            
-            Required Fixes:
-            {chr(10).join(f'- {fix}' for fix in set(needed_fixes))}
-            """
-            
-            print(f"\nBuild failed with errors:\n{error_log}")
-            
-            # 6. Apply quick fixes for known error types
-            if any(pattern in error_log for pattern in error_categories['stack_size']['patterns']):
-                print("Detected stack size issue, applying quick fixes...")
-                with open(lib_rs_path, 'r') as f:
-                    contract_code = f.read()
-                
-                # Add stack optimization attributes
-                contract_code = re.sub(
-                    r'#\[account\](\s+)pub struct ([A-Za-z0-9_]+)',
-                    r'#[account]\n#[derive(Default)]\1pub struct \2',
-                    contract_code
-                )
-                
-                # Convert Vec<u8> to &[u8] where possible
-                contract_code = re.sub(
-                    r'Vec<u8>',
-                    r'Box<[u8]>',
-                    contract_code
-                )
-                
-                with open(lib_rs_path, 'w') as f:
-                    f.write(contract_code)
-            
-            if any(pattern in error_log for pattern in error_categories['type_safety']['patterns']):
-                print("Detected type safety issues, applying quick fixes...")
-                with open(lib_rs_path, 'r') as f:
-                    contract_code = f.read()
-                
-                # Add checked arithmetic
-                contract_code = re.sub(
-                    r'(\w+)\s*([+\-*/])\s*(\w+)',
-                    r'\1.checked_\2(\3).ok_or(CustomError::ArithmeticError)?',
-                    contract_code
-                )
-                
-                with open(lib_rs_path, 'w') as f:
-                    f.write(contract_code)
-            
-        except Exception as e:
-            import traceback
-            print(f"Error in build process: {str(e)}")
-            print(traceback.format_exc())
-            error_log = f"Exception occurred: {str(e)}"
-        
-        finally:
-            # Return to original directory
-            os.chdir(root_dir)
+                return program_id
+    except Exception as e:
+        print(f"Error extracting program ID: {str(e)}")
     
-    print(f"Maximum attempts ({max_attempts}) reached without successful build")
-    return False, program_id
+    return None
+
+
+def _extract_error_summary(error_log):
+    """Extract a concise summary of errors from the build output."""
+    import re
+    
+    error_summary = ""
+    
+    # Find Rust compiler errors - most critical
+    rust_errors = re.findall(r'error\[E\d+\]:.*?(?=warning:|error:|$)', error_log, re.DOTALL)
+    if rust_errors:
+        error_summary += "Rust compiler errors:\n"
+        for error in rust_errors[:3]:  # Only show top 3 errors
+            error_summary += error.strip() + "\n"
+    
+    # Find error messages without showing all build output
+    lines = error_log.split('\n')
+    error_lines = []
+    for i, line in enumerate(lines):
+        if 'error:' in line.lower() and '--->' in line:
+            # Found an error indicator line
+            start = max(0, i-1)
+            end = min(len(lines), i+3)
+            error_lines.extend(lines[start:end])
+    
+    if error_lines:
+        error_summary += "\nError locations:\n" + "\n".join(error_lines[:6])  # Limit to 6 lines
+    
+    # Categorize errors for targeted fixes
+    error_categories = {
+        'stack_size': ['Stack offset', 'exceeded max offset', 'stack usage'],
+        'type_safety': ['mismatched types', 'expected `i64`', 'expected `u64`', 'overflow', 'underflow'],
+        'borrow_check': ['borrow of moved value', 'E0382'],
+        'question_mark': ['E0277', 'cannot use the `?` operator', 'FromResidual'],
+        'anchor_issues': ['missing lifetime', 'trait `Bumps`', 'try_accounts', 'no method named `get`']
+    }
+    
+    # Identify error categories present
+    detected_categories = []
+    for category, patterns in error_categories.items():
+        if any(pattern in error_log for pattern in patterns):
+            detected_categories.append(category)
+    
+    if detected_categories:
+        error_summary += "\nDetected error categories: " + ", ".join(detected_categories)
+    
+    return error_summary
+
+
+def _apply_automatic_fixes(lib_rs_path, error_log):
+    """Apply automatic fixes for common error types."""
+    import os, re
+    
+    # Categorize errors
+    error_categories = {
+        'question_mark': ['E0277', 'cannot use the `?` operator', 'FromResidual'],
+        'borrow_check': ['borrow of moved value', 'E0382']
+    }
+    
+    # Check for question mark operator errors
+    if any(pattern in error_log for pattern in error_categories['question_mark']):
+        print("Attempting to fix ? operator issues...")
+        with open(lib_rs_path, 'r') as f:
+            contract_code = f.read()
+        
+        # Replace Clock::get()? with Clock::get().expect(...)
+        contract_code = re.sub(
+            r'Clock::get\(\)\?',
+            r'Clock::get().expect("Failed to get clock")',
+            contract_code
+        )
+        
+        with open(lib_rs_path, 'w') as f:
+            f.write(contract_code)
+    
+    # Check for borrow/move errors
+    if any(pattern in error_log for pattern in error_categories['borrow_check']):
+        print("Attempting to fix string ownership issues...")
+        with open(lib_rs_path, 'r') as f:
+            contract_code = f.read()
+        
+        # Find string assignments and add .clone()
+        string_assignments = re.findall(r'(\w+)\.(\w+)\s*=\s*(\w+);', contract_code)
+        for assignment in string_assignments:
+            struct_var, field, value = assignment
+            if f'{struct_var}.{field} = {value}.clone();' not in contract_code:
+                old_pattern = f'{struct_var}.{field} = {value};'
+                new_pattern = f'{struct_var}.{field} = {value}.clone();'
+                contract_code = contract_code.replace(old_pattern, new_pattern)
+        
+        with open(lib_rs_path, 'w') as f:
+            f.write(contract_code)
 
 
 def deploy_contract_from_loop(program_id, contract_type, network="devnet"):

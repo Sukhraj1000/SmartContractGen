@@ -1,159 +1,12 @@
 {
-  "address": "Fy6hNJzz1y8odKtYW7RiDti5aQXPYtYEnqKK3pHfrt9R",
+  "address": "6bxjHnAj8m5Fs6hve9xeLcKyN4b2gGonCnBDsv59DNXQ",
   "metadata": {
-    "name": "escrow",
+    "name": "deploy",
     "version": "0.1.0",
     "spec": "0.1.0",
     "description": "Created with SmartContractGen"
   },
   "instructions": [
-    {
-      "name": "cancel",
-      "discriminator": [
-        232,
-        219,
-        223,
-        41,
-        219,
-        236,
-        220,
-        190
-      ],
-      "accounts": [
-        {
-          "name": "initializer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  101,
-                  115,
-                  99,
-                  114,
-                  111,
-                  119
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "escrow.seed",
-                "account": "EscrowAccount"
-              }
-            ]
-          }
-        },
-        {
-          "name": "system_program",
-          "address": "Fy6hNJzz1y8odKtYW7RiDti5aQXPYtYEnqKK3pHfrt9R"
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "close",
-      "discriminator": [
-        98,
-        165,
-        201,
-        177,
-        108,
-        65,
-        206,
-        96
-      ],
-      "accounts": [
-        {
-          "name": "initializer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  101,
-                  115,
-                  99,
-                  114,
-                  111,
-                  119
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "escrow.seed",
-                "account": "EscrowAccount"
-              }
-            ]
-          }
-        },
-        {
-          "name": "system_program",
-          "address": "Fy6hNJzz1y8odKtYW7RiDti5aQXPYtYEnqKK3pHfrt9R"
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "execute",
-      "discriminator": [
-        130,
-        221,
-        242,
-        154,
-        13,
-        193,
-        189,
-        29
-      ],
-      "accounts": [
-        {
-          "name": "taker",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  101,
-                  115,
-                  99,
-                  114,
-                  111,
-                  119
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "escrow.seed",
-                "account": "EscrowAccount"
-              }
-            ]
-          }
-        },
-        {
-          "name": "system_program",
-          "address": "Fy6hNJzz1y8odKtYW7RiDti5aQXPYtYEnqKK3pHfrt9R"
-        }
-      ],
-      "args": []
-    },
     {
       "name": "initialize",
       "discriminator": [
@@ -168,36 +21,31 @@
       ],
       "accounts": [
         {
-          "name": "initializer",
+          "name": "sender",
           "writable": true,
           "signer": true
         },
         {
-          "name": "escrow",
+          "name": "receiver"
+        },
+        {
+          "name": "escrow_authority"
+        },
+        {
+          "name": "escrow_account",
           "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  101,
-                  115,
-                  99,
-                  114,
-                  111,
-                  119
-                ]
-              },
-              {
-                "kind": "arg",
-                "path": "seed"
-              }
-            ]
-          }
+          "signer": true
         },
         {
           "name": "system_program",
-          "address": "Fy6hNJzz1y8odKtYW7RiDti5aQXPYtYEnqKK3pHfrt9R"
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "registry_program"
+        },
+        {
+          "name": "registry_transaction",
+          "writable": true
         }
       ],
       "args": [
@@ -206,14 +54,91 @@
           "type": "u64"
         },
         {
-          "name": "seed",
-          "type": "u64"
-        },
-        {
-          "name": "bump",
-          "type": "u8"
+          "name": "release_condition",
+          "type": "string"
         }
       ]
+    },
+    {
+      "name": "register_transaction",
+      "discriminator": [
+        158,
+        135,
+        86,
+        133,
+        215,
+        10,
+        181,
+        168
+      ],
+      "accounts": [
+        {
+          "name": "registry_program"
+        },
+        {
+          "name": "registry_transaction",
+          "writable": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "data",
+          "type": {
+            "defined": {
+              "name": "RegistryTransactionData"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "release",
+      "discriminator": [
+        253,
+        249,
+        15,
+        206,
+        28,
+        127,
+        193,
+        241
+      ],
+      "accounts": [
+        {
+          "name": "receiver",
+          "writable": true
+        },
+        {
+          "name": "escrow_authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "escrow_account",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "registry_program"
+        },
+        {
+          "name": "registry_transaction",
+          "writable": true
+        }
+      ],
+      "args": []
     }
   ],
   "accounts": [
@@ -234,38 +159,28 @@
   "errors": [
     {
       "code": 6000,
-      "name": "InvalidAmount",
-      "msg": "Amount must be greater than zero"
-    },
-    {
-      "code": 6001,
-      "name": "EscrowNotActive",
-      "msg": "Escrow is not active"
-    },
-    {
-      "code": 6002,
-      "name": "EscrowStillActive",
-      "msg": "Escrow is still active"
-    },
-    {
-      "code": 6003,
-      "name": "CannotTakeOwnEscrow",
-      "msg": "Cannot take your own escrow"
-    },
-    {
-      "code": 6004,
-      "name": "Unauthorized",
+      "name": "UnauthorizedAccess",
       "msg": "Unauthorized access"
     },
     {
-      "code": 6005,
-      "name": "InsufficientFunds",
-      "msg": "Insufficient funds"
+      "code": 6001,
+      "name": "AlreadyCompleted",
+      "msg": "Escrow is already completed"
     },
     {
-      "code": 6006,
-      "name": "AmountOverflow",
-      "msg": "Amount overflow"
+      "code": 6002,
+      "name": "MathOverflow",
+      "msg": "Math overflow error"
+    },
+    {
+      "code": 6003,
+      "name": "SerializationError",
+      "msg": "Serialization error"
+    },
+    {
+      "code": 6004,
+      "name": "RegistryError",
+      "msg": "Registry program error"
     }
   ],
   "types": [
@@ -275,7 +190,15 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "initializer",
+            "name": "sender",
+            "type": "pubkey"
+          },
+          {
+            "name": "receiver",
+            "type": "pubkey"
+          },
+          {
+            "name": "escrow_authority",
             "type": "pubkey"
           },
           {
@@ -283,24 +206,40 @@
             "type": "u64"
           },
           {
-            "name": "seed",
+            "name": "release_condition",
+            "type": "string"
+          },
+          {
+            "name": "is_completed",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RegistryTransactionData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tx_type",
+            "type": "string"
+          },
+          {
+            "name": "amount",
             "type": "u64"
           },
           {
-            "name": "bump",
-            "type": "u8"
+            "name": "initiator",
+            "type": "pubkey"
           },
           {
-            "name": "is_active",
-            "type": "bool"
+            "name": "target_account",
+            "type": "pubkey"
           },
           {
-            "name": "created_at",
-            "type": "i64"
-          },
-          {
-            "name": "last_updated_at",
-            "type": "i64"
+            "name": "description",
+            "type": "string"
           }
         ]
       }

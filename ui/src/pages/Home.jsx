@@ -18,9 +18,8 @@ import "../styles/global.css";
 
 /**
  * Home page component that serves as the main entry point for the application.
- * Provides navigation options for creating new contracts or uploading documents.
- * Implements smooth transitions and responsive design.
- */
+ * Provides navigation options for creating new contracts.
+ * */
 const Home = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -85,7 +84,7 @@ const Home = () => {
               ) : (
                 <>
                   {/* New contract button */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid item xs={20}>
                     <Card elevation={2} sx={{ height: '100%', borderRadius: 2, overflow: 'hidden' }}>
                       <CardContent sx={{ p: 0, height: '100%' }}>
                         <Button
@@ -106,58 +105,8 @@ const Home = () => {
                       </CardContent>
                     </Card>
                   </Grid>
-
-                  {/* Document upload button */}
-                  <Grid item xs={12} sm={6}>
-                    <Card elevation={2} sx={{ height: '100%', borderRadius: 2, overflow: 'hidden' }}>
-                      <CardContent sx={{ p: 0, height: '100%' }}>
-                        <Button
-                          variant="outlined"
-                          fullWidth
-                          size="large"
-                          startIcon={<UploadFile />}
-                          sx={{
-                            height: '100%',
-                            py: 3,
-                            borderRadius: 0,
-                            fontSize: "1.2rem",
-                            borderColor: theme.palette.secondary.main,
-                            color: theme.palette.secondary.main,
-                            '&:hover': {
-                              borderColor: theme.palette.secondary.light,
-                              color: theme.palette.secondary.light,
-                              backgroundColor: 'rgba(0,176,255,0.08)'
-                            }
-                          }}
-                          onClick={() => handleNavigation("/upload")}
-                        >
-                          Upload Document
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </Grid>
                 </>
               )}
-            </Grid>
-
-            {/* Documentation link section */}
-            <Grid item mt={4}>
-              <Typography variant="body1">
-                Need Help?{" "}
-                <a
-                  href="/docs"
-                  style={{
-                    color: theme.palette.secondary.main,
-                    textDecoration: "none",
-                    fontWeight: "bold",
-                    transition: "color 0.3s",
-                  }}
-                  onMouseOver={(e) => e.target.style.color = theme.palette.secondary.light}
-                  onMouseOut={(e) => e.target.style.color = theme.palette.secondary.main}
-                >
-                  View Documentation
-                </a>
-              </Typography>
             </Grid>
           </Grid>
         </Paper>

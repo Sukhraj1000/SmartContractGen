@@ -1,34 +1,80 @@
 {
-  "version": "0.1.0",
-  "name": "registry",
+  "address": "BhETt1LhzVYpK5DTcRuNZdKyb3QTz8HktUoXQJQapmvn",
+  "metadata": {
+    "name": "registry",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
   "instructions": [
     {
-      "name": "registerTransaction",
+      "name": "register_transaction",
+      "discriminator": [
+        158,
+        135,
+        86,
+        133,
+        215,
+        10,
+        181,
+        168
+      ],
       "accounts": [
         {
           "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          "writable": true,
+          "signer": true
         },
         {
-          "name": "callerProgramId",
-          "isMut": false,
-          "isSigner": false
+          "name": "caller_program_id"
         },
         {
-          "name": "transactionRecord",
-          "isMut": true,
-          "isSigner": false
+          "name": "transaction_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  97,
+                  110,
+                  115,
+                  97,
+                  99,
+                  116,
+                  105,
+                  111,
+                  110,
+                  95,
+                  118,
+                  49
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payer"
+              },
+              {
+                "kind": "arg",
+                "path": "tx_type"
+              },
+              {
+                "kind": "arg",
+                "path": "amount"
+              }
+            ]
+          }
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
         {
-          "name": "txType",
+          "name": "tx_type",
           "type": "string"
         },
         {
@@ -37,11 +83,11 @@
         },
         {
           "name": "initiator",
-          "type": "publicKey"
+          "type": "pubkey"
         },
         {
-          "name": "targetAccount",
-          "type": "publicKey"
+          "name": "target_account",
+          "type": "pubkey"
         },
         {
           "name": "description",
@@ -50,22 +96,29 @@
       ]
     },
     {
-      "name": "verifyTransaction",
+      "name": "verify_transaction",
+      "discriminator": [
+        157,
+        126,
+        193,
+        134,
+        49,
+        51,
+        7,
+        88
+      ],
       "accounts": [
         {
           "name": "requester",
-          "isMut": false,
-          "isSigner": true
+          "signer": true
         },
         {
-          "name": "transactionRecord",
-          "isMut": false,
-          "isSigner": false
+          "name": "transaction_record"
         }
       ],
       "args": [
         {
-          "name": "expectedAmount",
+          "name": "expected_amount",
           "type": "u64"
         }
       ]
@@ -74,11 +127,33 @@
   "accounts": [
     {
       "name": "TransactionRecord",
+      "discriminator": [
+        206,
+        23,
+        5,
+        97,
+        161,
+        157,
+        25,
+        107
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidAmount",
+      "msg": "Transaction amount does not match expected amount"
+    }
+  ],
+  "types": [
+    {
+      "name": "TransactionRecord",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "txType",
+            "name": "tx_type",
             "type": "string"
           },
           {
@@ -87,15 +162,15 @@
           },
           {
             "name": "initiator",
-            "type": "publicKey"
+            "type": "pubkey"
           },
           {
-            "name": "targetAccount",
-            "type": "publicKey"
+            "name": "target_account",
+            "type": "pubkey"
           },
           {
-            "name": "callerProgramId",
-            "type": "publicKey"
+            "name": "caller_program_id",
+            "type": "pubkey"
           },
           {
             "name": "description",
@@ -108,8 +183,5 @@
         ]
       }
     }
-  ],
-  "metadata": {
-    "address": "BhETt1LhzVYpK5DTcRuNZdKyb3QTz8HktUoXQJQapmvn"
-  }
-} 
+  ]
+}

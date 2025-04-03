@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { Button, Box, Typography, Grid2, Container } from "@mui/material";
+import { Button, Box, Typography, Grid, Container } from "@mui/material";
 
 /**
  * File upload component that handles document parsing and analysis.
@@ -36,16 +36,16 @@ function FileUpload({ onFileParsed }) {
 
   return (
     <Container maxWidth="sm" sx={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center" }}>
-      <Grid2 container spacing={3} direction="column" alignItems="center" justifyContent="center">
+      <Grid container spacing={3} direction="column" alignItems="center" justifyContent="center">
         {/* Upload section title */}
-        <Grid2 item>
+        <Grid item>
           <Typography variant="h5" sx={{ color: "white", textAlign: "center" }}>
             Upload Document
           </Typography>
-        </Grid2>
+        </Grid>
 
         {/* File input field */}
-        <Grid2 item>
+        <Grid item>
           <input
             type="file"
             onChange={handleFileChange}
@@ -56,10 +56,10 @@ function FileUpload({ onFileParsed }) {
               display: "block",
             }}
           />
-        </Grid2>
+        </Grid>
 
         {/* Upload and parse button */}
-        <Grid2 item>
+        <Grid item>
           <Button
             variant="contained"
             color="primary"
@@ -69,8 +69,8 @@ function FileUpload({ onFileParsed }) {
           >
             {uploading ? "Uploading..." : "Upload & Parse"}
           </Button>
-        </Grid2>
-      </Grid2>
+        </Grid>
+      </Grid>
     </Container>
   );
 }

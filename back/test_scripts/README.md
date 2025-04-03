@@ -27,7 +27,7 @@ All test scripts use the project's primary deployment wallet by default:
 
 This wallet is configured as the default for all Solana operations in the project to maintain consistency and simplify SOL management.
 
-## Test Scripts
+## Core Test Scripts
 
 ### 1. Scalability Testing: TPS (Transactions Per Second)
 
@@ -60,7 +60,19 @@ node interoperability_test.js crowdfunding HeZ7kRyMg91UNY5VvPHt1zBRYNW1sw9UA3Bwh
 
 Results are saved to `interop_results.json`.
 
-### 3. Security Analysis
+### 3. Comprehensive Contract Testing
+
+The `contract_test.js` script provides thorough testing of your contract's functionality, including various transaction scenarios and edge cases.
+
+```bash
+# Usage
+node contract_test.js <contract_type> <program_id> [wallet_path]
+
+# Example
+node contract_test.js escrow CxEvoPT1kHshLT8GoDVS1mKJqeYNGiNzN4puGei9tXKq
+```
+
+### 4. Security Analysis
 
 The `security_analysis.sh` script performs static analysis and security checks on AI-generated contracts.
 
@@ -87,28 +99,40 @@ The `security_analysis.sh` script performs static analysis and security checks o
    anchor deploy --provider.cluster devnet
    ```
 
-3. Run security analysis
+3. Copy IDL files for testing
    ```bash
-   cd ../back/test_scripts
+   cd ../back/script
+   ./copy_idl.sh
+   ```
+
+4. Run security analysis
+   ```bash
+   cd ../test_scripts
    ./security_analysis.sh
    ```
 
-4. Run TPS test with the new Program ID
+5. Run comprehensive contract tests
    ```bash
-   node tps_test.js escrow <program_id_from_deployment>
+   node contract_test.js <contract_type> <program_id_from_deployment>
    ```
 
-5. Run interoperability test with the new Program ID
+6. Run TPS test with the deployed Program ID
    ```bash
-   node interoperability_test.js escrow <program_id_from_deployment>
+   node tps_test.js <contract_type> <program_id_from_deployment>
+   ```
+
+7. Run interoperability test with the deployed Program ID
+   ```bash
+   node interoperability_test.js <contract_type> <program_id_from_deployment>
    ```
 
 ## Directory Structure
 
 - `idl/`: IDL files for contracts
-- `tps_results.json`: Performance test results
-- `interop_results.json`: Interoperability test results
-- `security_results.json`: Security analysis results
+- `contract_test.js`: Comprehensive contract testing
+- `interoperability_test.js`: Registry integration testing
+- `tps_test.js`: Performance testing
+- `security_analysis.sh`: Security validation
 
 ## Registry Subcontract Deployment
 

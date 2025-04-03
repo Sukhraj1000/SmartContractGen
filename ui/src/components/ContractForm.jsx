@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -15,6 +16,7 @@ import {
 import ContractPreview from './ContractPreview';
 
 const ContractForm = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     contract_type: '',
     contract_name: '',
@@ -23,6 +25,7 @@ const ContractForm = () => {
   });
 
   const [isComplete, setIsComplete] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Contract type configurations - matching ContractPreview exactly
   const fieldConfigs = {
@@ -118,8 +121,9 @@ const ContractForm = () => {
   // Handle form submission
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!isComplete) return;
+    if (!isComplete || submitting) return;
 
+    setSubmitting(true);
     try {
       const response = await fetch('http://localhost:8000/api/build-contract', {
         method: 'POST',
@@ -138,9 +142,12 @@ const ContractForm = () => {
         return;
       }
 
-      console.log('Success:', data);
+      // Navigate to processing page with the contract ID
+      navigate(`/processing/${data.contract_id}`);
     } catch (error) {
       console.error('Error:', error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -317,7 +324,7 @@ const ContractForm = () => {
                     type="submit"
                     variant="contained"
                     size="large"
-                    disabled={!isComplete}
+                    disabled={!isComplete || submitting}
                     sx={{
                       bgcolor: '#4f46e5',
                       '&:hover': {
@@ -328,7 +335,7 @@ const ContractForm = () => {
                       }
                     }}
                   >
-                    Generate Contract
+                    {submitting ? 'Generating...' : 'Generate Contract'}
                   </Button>
                 </Box>
               </>

@@ -41,32 +41,534 @@ def extract_code_from_ai_response(response):
     return contract_code
 
 def get_template_for_contract_type(contract_type):
-    """Get a template file for the specified contract type to use as a reference.
+    """
+    Returns a template for the given contract type.
     
     Args:
-        contract_type (str): Type of contract (escrow, crowdfunding)
+        contract_type: Type of contract (escrow, crowdfunding, etc.)
         
     Returns:
-        str: The template contract code or None if not found
+        Template code as a string or None if not found
     """
-    template_paths = {
-        "escrow": "templates/escrow_template.rs",
-        "crowdfunding": "templates/crowdfunding_template.rs",
-        "registry_interface": "templates/registry_interface.rs"
+    templates = {
+        "escrow": """
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{program::invoke, system_instruction};
+use std::str::FromStr;
+
+declare_id!("11111111111111111111111111111111");
+
+// Registry integration code
+pub const REGISTRY_PROGRAM_ID: &str = "BhETt1LhzVYpK5DTcRuNZdKyb3QTz8HktUoXQJQapmvn";
+pub const REGISTRY_TRANSACTION_SEED: &str = "transaction_v1";
+
+// Structure for Registry transaction data
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct RegistryTransactionData {
+    pub tx_type: String,
+    pub amount: u64, 
+    pub initiator: Pubkey,
+    pub target_account: Pubkey,
+    pub description: String,
+}
+
+#[program]
+pub mod escrow {
+    use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>, amount: u64, release_condition: String) -> Result<()> {
+        // Initialize escrow account
+        let escrow = &mut ctx.accounts.escrow_account;
+        
+        escrow.sender = ctx.accounts.sender.key();
+        escrow.receiver = ctx.accounts.receiver.key();
+        escrow.escrow_authority = ctx.accounts.escrow_authority.key();
+        escrow.amount = amount;
+        escrow.release_condition = release_condition;
+        escrow.is_completed = false;
+        
+        // Transfer funds from sender to escrow account
+        let transfer_instruction = system_instruction::transfer(
+            &ctx.accounts.sender.key(),
+            &ctx.accounts.escrow_account.key(),
+            amount,
+        );
+        
+        // Clone the account infos before using them to avoid borrow conflicts
+        let sender_info = ctx.accounts.sender.to_account_info();
+        let escrow_account_info = ctx.accounts.escrow_account.to_account_info();
+        let system_program_info = ctx.accounts.system_program.to_account_info();
+        
+        invoke(
+            &transfer_instruction,
+            &[
+                sender_info,
+                escrow_account_info,
+                system_program_info,
+            ],
+        )?;
+        
+        // Register the transaction with the registry program if provided
+        if ctx.accounts.registry_program.key() == Pubkey::from_str(REGISTRY_PROGRAM_ID).unwrap() {
+            let registry_data = RegistryTransactionData {
+                tx_type: "escrow_initialize".to_string(),
+                amount,
+                initiator: ctx.accounts.sender.key(),
+                target_account: ctx.accounts.receiver.key(),
+                description: format!("Escrow initialized with amount {}", amount),
+            };
+            
+            // Register the transaction using the helper function
+            register_transaction_helper(
+                ctx.accounts.registry_program.to_account_info(),
+                ctx.accounts.registry_transaction.to_account_info(),
+                ctx.accounts.sender.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+                registry_data,
+            )?;
+        }
+        
+        Ok(())
+    }
+
+    pub fn release(ctx: Context<Release>) -> Result<()> {
+        // Get the escrow account info and balance first
+        let escrow_info = ctx.accounts.escrow_account.to_account_info();
+        let escrow_balance = escrow_info.lamports();
+        
+        // Only the escrow authority can release funds
+        require!(
+            ctx.accounts.escrow_authority.key() == ctx.accounts.escrow_account.escrow_authority,
+            EscrowError::UnauthorizedAccess
+        );
+        
+        // Ensure escrow is not already completed
+        require!(!ctx.accounts.escrow_account.is_completed, EscrowError::AlreadyCompleted);
+        
+        // Get the rent to calculate rent-exempt amount
+        let rent = Rent::get()?;
+        
+        // Calculate the rent-exempt amount first
+        let rent_exempt_lamports = rent.minimum_balance(8 + EscrowAccount::SIZE);
+        
+        // Calculate the amount to transfer (total balance minus rent-exempt amount)
+        let transfer_amount = escrow_balance
+            .checked_sub(rent_exempt_lamports)
+            .ok_or(EscrowError::MathOverflow)?;
+        
+        // Transfer funds from escrow account to receiver
+        **escrow_info.try_borrow_mut_lamports()? = rent_exempt_lamports;
+            
+        // Clone receiver info to avoid borrow conflicts
+        let receiver_info = ctx.accounts.receiver.to_account_info();
+        **receiver_info.try_borrow_mut_lamports()? = receiver_info
+            .lamports()
+            .checked_add(transfer_amount)
+            .ok_or(EscrowError::MathOverflow)?;
+        
+        // Mark escrow as completed
+        ctx.accounts.escrow_account.is_completed = true;
+        
+        // Register the transaction with the registry program if provided
+        if ctx.accounts.registry_program.key() == Pubkey::from_str(REGISTRY_PROGRAM_ID).unwrap() {
+            let registry_data = RegistryTransactionData {
+                tx_type: "escrow_release".to_string(),
+                amount: transfer_amount,
+                initiator: ctx.accounts.escrow_authority.key(),
+                target_account: ctx.accounts.receiver.key(),
+                description: format!("Escrow released with amount {}", transfer_amount),
+            };
+            
+            // Register the transaction using the helper function
+            register_transaction_helper(
+                ctx.accounts.registry_program.to_account_info(),
+                ctx.accounts.registry_transaction.to_account_info(),
+                ctx.accounts.escrow_authority.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+                registry_data,
+            )?;
+        }
+        
+        Ok(())
+    }
+
+    pub fn register_transaction(ctx: Context<RegisterTransaction>, data: RegistryTransactionData) -> Result<()> {
+        // Register the transaction using the helper function
+        register_transaction_helper(
+            ctx.accounts.registry_program.to_account_info(),
+            ctx.accounts.registry_transaction.to_account_info(),
+            ctx.accounts.payer.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            data,
+        )
+    }
+}
+
+// Helper function to register transactions with the registry program
+fn register_transaction_helper<'a>(
+    registry_program: AccountInfo<'a>,
+    registry_transaction: AccountInfo<'a>,
+    payer: AccountInfo<'a>,
+    system_program: AccountInfo<'a>,
+    data: RegistryTransactionData,
+) -> Result<()> {
+    // Serialize the transaction data
+    let mut tx_data = Vec::new();
+    data.serialize(&mut tx_data).map_err(|_| EscrowError::SerializationError)?;
+    
+    // Create cross-program invocation instruction data
+    let mut instruction_data = Vec::new();
+    instruction_data.push(0); // Instruction index for register_transaction
+    instruction_data.extend_from_slice(&tx_data);
+    
+    // Create the instruction
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: registry_program.key(),
+        accounts: vec![
+            anchor_lang::solana_program::instruction::AccountMeta::new(registry_transaction.key(), false),
+            anchor_lang::solana_program::instruction::AccountMeta::new(payer.key(), true),
+            anchor_lang::solana_program::instruction::AccountMeta::new_readonly(system_program.key(), false),
+        ],
+        data: instruction_data,
+    };
+    
+    // Invoke the instruction
+    anchor_lang::solana_program::program::invoke(
+        &ix,
+        &[
+            registry_transaction.clone(),
+            payer.clone(),
+            system_program.clone(),
+        ],
+    ).map_err(|_| EscrowError::RegistryError)?;
+    
+    Ok(())
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub sender: Signer<'info>,
+    
+    /// CHECK: This is safe because we only read the key
+    pub receiver: AccountInfo<'info>,
+    
+    /// CHECK: This is the escrow authority who can release funds
+    pub escrow_authority: AccountInfo<'info>,
+    
+    #[account(
+        init,
+        payer = sender,
+        space = 8 + EscrowAccount::SIZE
+    )]
+    pub escrow_account: Account<'info, EscrowAccount>,
+    
+    pub system_program: Program<'info, System>,
+    
+    /// CHECK: This is the registry program
+    pub registry_program: AccountInfo<'info>,
+    
+    /// CHECK: This is the registry transaction account
+    #[account(mut)]
+    pub registry_transaction: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+pub struct Release<'info> {
+    /// CHECK: This is the receiver who will receive the funds
+    #[account(mut)]
+    pub receiver: AccountInfo<'info>,
+    
+    /// CHECK: This is the escrow authority who controls the release
+    #[account(mut, signer)]
+    pub escrow_authority: AccountInfo<'info>,
+    
+    #[account(mut)]
+    pub escrow_account: Account<'info, EscrowAccount>,
+    
+    pub system_program: Program<'info, System>,
+    
+    /// CHECK: This is the registry program
+    pub registry_program: AccountInfo<'info>,
+    
+    /// CHECK: This is the registry transaction account
+    #[account(mut)]
+    pub registry_transaction: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+pub struct RegisterTransaction<'info> {
+    /// CHECK: This is the registry program
+    pub registry_program: AccountInfo<'info>,
+    
+    /// CHECK: This is the registry transaction account
+    #[account(mut)]
+    pub registry_transaction: AccountInfo<'info>,
+    
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+#[derive(Default)]
+pub struct EscrowAccount {
+    pub sender: Pubkey,
+    pub receiver: Pubkey,
+    pub escrow_authority: Pubkey,
+    pub amount: u64,
+    pub release_condition: String,
+    pub is_completed: bool,
+}
+
+impl EscrowAccount {
+    pub const SIZE: usize = 32 + // sender
+                             32 + // receiver
+                             32 + // escrow_authority
+                             8 +  // amount
+                             4 + 100 + // release_condition (max 100 chars)
+                             1;   // is_completed
+}
+
+#[error_code]
+pub enum EscrowError {
+    #[msg("Unauthorized access")]
+    UnauthorizedAccess,
+    #[msg("Escrow is already completed")]
+    AlreadyCompleted,
+    #[msg("Math overflow error")]
+    MathOverflow,
+    #[msg("Serialization error")]
+    SerializationError,
+    #[msg("Registry program error")]
+    RegistryError,
+}
+""",
+        "crowdfunding": """
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{program::invoke, system_instruction};
+
+declare_id!("11111111111111111111111111111111");
+
+#[program]
+pub mod crowdfunding {
+    use super::*;
+
+    pub fn initialize_campaign(
+        ctx: Context<InitializeCampaign>,
+        campaign_name: String,
+        description: String,
+        target_amount: u64,
+        end_time: i64,
+    ) -> Result<()> {
+        let campaign = &mut ctx.accounts.campaign;
+        
+        // Properly clone string values that will be used later
+        campaign.campaign_name = campaign_name.clone();
+        campaign.description = description.clone();
+        
+        campaign.creator = ctx.accounts.creator.key();
+        campaign.beneficiary = ctx.accounts.beneficiary.key();
+        campaign.target_amount = target_amount;
+        campaign.raised_amount = 0;
+        campaign.end_time = end_time;
+        campaign.is_active = true;
+        campaign.is_successful = false;
+        
+        // Create a seed for PDA derivation - NEVER use ? inside #[derive(Accounts)]
+        campaign.seed = ctx.bumps.get("campaign").copied().unwrap();
+        campaign.created_at = Clock::get().expect("Failed to get clock").unix_timestamp;
+        campaign.last_updated_at = Clock::get().expect("Failed to get clock").unix_timestamp;
+        
+        msg!("Campaign initialized: {}", campaign_name);
+        
+        Ok(())
+    }
+
+    pub fn donate(ctx: Context<Donate>, amount: u64) -> Result<()> {
+        let campaign = &mut ctx.accounts.campaign;
+        let donor = &ctx.accounts.donor;
+        
+        // Validate campaign state
+        require!(campaign.is_active, CampaignError::CampaignInactive);
+        require!(
+            Clock::get().expect("Failed to get clock").unix_timestamp <= campaign.end_time,
+            CampaignError::CampaignEnded
+        );
+        
+        // Build and invoke the system instruction to transfer lamports
+        let transfer_instruction = system_instruction::transfer(
+            &donor.key(),
+            &ctx.accounts.campaign_account.key(),
+            amount,
+        );
+        
+        invoke(
+            &transfer_instruction,
+            &[
+                donor.to_account_info(),
+                ctx.accounts.campaign_account.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+        )?;
+        
+        // Update campaign state
+        campaign.raised_amount = campaign
+            .raised_amount
+            .checked_add(amount)
+            .ok_or(CampaignError::MathOverflow)?;
+            
+        campaign.last_updated_at = Clock::get().expect("Failed to get clock").unix_timestamp;
+        
+        msg!("Donation of {} lamports received", amount);
+        
+        Ok(())
+    }
+
+    pub fn finalize_campaign(ctx: Context<FinalizeCampaign>) -> Result<()> {
+        let campaign = &mut ctx.accounts.campaign;
+        
+        // Validate campaign state
+        require!(campaign.is_active, CampaignError::CampaignInactive);
+        require!(
+            Clock::get().expect("Failed to get clock").unix_timestamp > campaign.end_time,
+            CampaignError::CampaignStillActive
+        );
+        
+        // Set campaign as inactive
+        campaign.is_active = false;
+        
+        // Determine if campaign was successful
+        campaign.is_successful = campaign.raised_amount >= campaign.target_amount;
+        
+        // If successful, transfer funds to beneficiary
+        if campaign.is_successful {
+            let campaign_lamports = ctx.accounts.campaign_account.lamports();
+            
+            **ctx.accounts.campaign_account.try_borrow_mut_lamports()? = campaign_lamports
+                .checked_sub(campaign.raised_amount)
+                .ok_or(CampaignError::MathOverflow)?;
+                
+            **ctx.accounts.beneficiary.try_borrow_mut_lamports()? = ctx
+                .accounts
+                .beneficiary
+                .lamports()
+                .checked_add(campaign.raised_amount)
+                .ok_or(CampaignError::MathOverflow)?;
+                
+            msg!("Campaign successful! Funds transferred to beneficiary");
+        } else {
+            msg!("Campaign unsuccessful. Funds can be refunded.");
+        }
+        
+        campaign.last_updated_at = Clock::get().expect("Failed to get clock").unix_timestamp;
+        
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct InitializeCampaign<'info> {
+    #[account(mut)]
+    pub creator: Signer<'info>,
+    /// CHECK: This is the beneficiary who will receive the funds if campaign is successful
+    pub beneficiary: AccountInfo<'info>,
+    #[account(
+        init,
+        payer = creator,
+        space = 8 + CampaignAccount::SIZE,
+        seeds = [b"crowdfunding", creator.key().as_ref()],
+        bump
+    )]
+    pub campaign: Account<'info, CampaignAccount>,
+    /// CHECK: This account will hold the campaign funds
+    #[account(mut)]
+    pub campaign_account: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct Donate<'info> {
+    #[account(mut)]
+    pub donor: Signer<'info>,
+    #[account(mut)]
+    pub campaign: Account<'info, CampaignAccount>,
+    /// CHECK: This account will hold the campaign funds
+    #[account(mut)]
+    pub campaign_account: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct FinalizeCampaign<'info> {
+    #[account(
+        constraint = campaign.creator == creator.key() @ CampaignError::UnauthorizedAccess
+    )]
+    pub creator: Signer<'info>,
+    /// CHECK: This is the beneficiary who will receive the funds
+    #[account(mut)]
+    pub beneficiary: AccountInfo<'info>,
+    #[account(mut)]
+    pub campaign: Account<'info, CampaignAccount>,
+    /// CHECK: This account holds the campaign funds
+    #[account(mut)]
+    pub campaign_account: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+#[derive(Default)]
+pub struct CampaignAccount {
+    pub creator: Pubkey,
+    pub beneficiary: Pubkey,
+    pub campaign_name: String,
+    pub description: String,
+    pub target_amount: u64,
+    pub raised_amount: u64,
+    pub end_time: i64,
+    pub is_active: bool,
+    pub is_successful: bool,
+    pub seed: u8,
+    pub created_at: i64,
+    pub last_updated_at: i64,
+}
+
+impl CampaignAccount {
+    // Size calculation breakdown:
+    // Pubkey: 32 bytes
+    // String size: 4 bytes (length) + max_content_bytes
+    pub const SIZE: usize = 32 + // creator
+                             32 + // beneficiary
+                             4 + 50 + // campaign_name (max 50 chars)
+                             4 + 255 + // description (max 255 chars)
+                             8 + // target_amount
+                             8 + // raised_amount
+                             8 + // end_time
+                             1 + // is_active
+                             1 + // is_successful
+                             1 + // seed
+                             8 + // created_at
+                             8;  // last_updated_at
+}
+
+#[error_code]
+pub enum CampaignError {
+    #[msg("Campaign is inactive")]
+    CampaignInactive,
+    #[msg("Campaign has already ended")]
+    CampaignEnded,
+    #[msg("Campaign is still active")]
+    CampaignStillActive,
+    #[msg("Unauthorized access")]
+    UnauthorizedAccess,
+    #[msg("Math overflow error")]
+    MathOverflow,
+}
+"""
     }
     
-    if contract_type not in template_paths:
-        print(f"No template found for contract type: {contract_type}")
-        return None
-    
-    template_path = os.path.join(os.path.dirname(__file__), "..", template_paths[contract_type])
-    
-    try:
-        with open(template_path, "r") as f:
-            return f.read()
-    except Exception as e:
-        print(f"Error reading template file: {str(e)}")
-        return None
+    return templates.get(contract_type)
 
 def generate_smart_contract(contract_type, schema, output_path=None):
     """Generate a smart contract based on the specified type and schema.
@@ -109,74 +611,71 @@ def generate_smart_contract(contract_type, schema, output_path=None):
     4. When validating in later instructions, use account.bump for verification
     """
     
+    # Prepare borrow checker instructions
+    borrow_checker_instructions = """
+    # BORROW CHECKER AND LIFETIME REQUIREMENTS
+    When working with account data and lamports:
+    1. Always get immutable borrows (to_account_info) before mutable borrows
+    2. Clone account infos before using them in invoke calls
+    3. Avoid multiple mutable borrows of the same account
+    4. Use proper lifetime annotations for helper functions
+    5. When accessing account data, prefer direct access over to_account_info() when possible
+    6. For lamport operations, always calculate rent-exempt amount first
+    7. Use checked arithmetic operations for all math operations
+    8. Properly handle account cloning in CPI calls
+    """
+
     # Prepare registry integration instructions
     registry_interop_instructions = f"""
     # REGISTRY INTEROPERABILITY REQUIREMENTS
     Your contract MUST interoperate with a pre-deployed Registry program that tracks transactions.
     The Registry contract has a fixed Program ID of {REGISTRY_PROGRAM_ID} which must never change.
     
-    SIMPLIFIED APPROACH: Rather than making actual CPI calls, which can cause type conflicts,
-    implement a function that LOGS transactions with this format:
-            
-            ```rust
-    // Registry Interface Code
-    pub const REGISTRY_PROGRAM_ID: &str = "{REGISTRY_PROGRAM_ID}";
-    pub const REGISTRY_TRANSACTION_SEED: &str = "transaction_v1";
+    Key requirements:
+    1. Always include registry program and transaction accounts in account structs
+    2. Use proper error handling for registry operations
+    3. Implement proper serialization for registry data
+    4. Use helper functions for registry operations to avoid code duplication
+    5. Always clone account infos before using them in registry operations
+    6. Use proper lifetime annotations for registry helper functions
+    7. Handle registry errors gracefully
+    """
 
-    // Structure for Registry transaction data
-    #[derive(AnchorSerialize)]
-    pub struct RegistryTransactionData {{
-        pub tx_type: String,
-        pub amount: u64, 
-        pub initiator: Pubkey,
-        pub target_account: Pubkey,
-        pub description: String,
-    }}
+    # Prepare account validation instructions
+    account_validation_instructions = """
+    # ACCOUNT VALIDATION REQUIREMENTS
+    When defining account structs:
+    1. Use proper constraints for signers and mutability
+    2. Include all necessary system accounts
+    3. Use proper space calculations for account initialization
+    4. Include proper documentation for unchecked accounts
+    5. Use proper seeds and bump constraints for PDAs
+    6. Include proper error messages in constraints
+    7. Use proper account types (Signer, Account, AccountInfo)
+    """
 
-    // Helper function to register a transaction with the Registry
-    pub fn register_with_registry<'info>(
-        tx_type: String,
-        amount: u64,
-        initiator: Pubkey,
-        target_account: Pubkey,
-        description: String,
-        payer: AccountInfo<'info>,
-        system_program: AccountInfo<'info>,
-    ) -> Result<()> {{
-        // Just log the transaction instead of making a CPI call
-        msg!(
-            "Registry Transaction: type={{}}, amount={{}}, initiator={{}}, target={{}}",
-            tx_type,
-            amount,
-            initiator,
-            target_account
-        );
-        
-        Ok(())
-    }}
-    
-    // Helper function for each specific contract type
-    pub fn register_transaction_action<'info>(
-        action_type: &str,
-        amount: u64,
-        initializer: &Pubkey,
-        target: &Pubkey,
-        payer: &AccountInfo<'info>,
-        system_program: &AccountInfo<'info>,
-    ) -> Result<()> {{
-        register_with_registry(
-            action_type.to_string(),
-            amount,
-            *initializer,
-            *target,
-            format!("{{}} {{}}: {{}} SOL", contract_type, action_type, amount as f64 / 1_000_000_000.0),
-            payer.clone(),
-            system_program.clone(),
-        )
-    }}
-    ```
-    
-    Call register_transaction_action() after any funds transfer or major state change.
+    # Prepare error handling instructions
+    error_handling_instructions = """
+    # ERROR HANDLING REQUIREMENTS
+    When implementing error handling:
+    1. Use proper error types for all operations
+    2. Include descriptive error messages
+    3. Handle all possible error cases
+    4. Use proper error propagation
+    5. Include proper error documentation
+    6. Use proper error codes
+    7. Handle math overflow errors
+    8. Handle serialization errors
+    """
+
+    # Combine all instructions
+    contract_generation_instructions = f"""
+    {idl_naming_patterns}
+    {bump_handling}
+    {borrow_checker_instructions}
+    {registry_interop_instructions}
+    {account_validation_instructions}
+    {error_handling_instructions}
     """
     
     # Generate prompt for AI
@@ -190,7 +689,7 @@ def generate_smart_contract(contract_type, schema, output_path=None):
     ## CRITICAL REQUIREMENTS - MUST FOLLOW EXACTLY
 
     1. IDL COMPATIBILITY:
-    {idl_naming_patterns}
+    {contract_generation_instructions}
 
     2. REGISTRY INTEGRATION:
     - Use Registry Program ID: {REGISTRY_PROGRAM_ID} (do not modify)
