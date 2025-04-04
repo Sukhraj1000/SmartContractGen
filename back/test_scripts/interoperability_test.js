@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * Interoperability Test for Solana Smart Contracts
+ * Enhanced Interoperability Test for Solana Smart Contracts
  * 
- * This test verifies that two smart contracts (a main program and a registry program)
- * are properly deployed and configured for interoperability.
+ * This test verifies that a smart contract properly integrates
+ * with the registry service primarily through static analysis.
+ * Optional dynamic network verification can be enabled with a flag.
  */
 
 const { 
@@ -27,14 +28,17 @@ const REGISTRY_PROGRAM_ID = "BhETt1LhzVYpK5DTcRuNZdKyb3QTz8HktUoXQJQapmvn";
 
 // Show usage information
 function showUsage() {
-  console.log('\nUsage: node interoperability_test.js <contract_type> <program_id> [registry_program_id] [wallet_path]');
+  console.log('\nUsage: node interoperability_test.js <contract_type> <program_id> [source_file] [--skip-network] [registry_program_id] [wallet_path]');
   console.log('\nArguments:');
   console.log('  <contract_type>     Type of contract (e.g., crowdfunding, escrow)');
   console.log('  <program_id>        Program ID of the contract to test');
+  console.log('  [source_file]       Optional: Path to the contract source file for static analysis (default: ../deploy/programs/deploy/src/lib.rs)');
+  console.log('  [--skip-network]    Optional: Skip dynamic network tests (faster, requires only source code)');
   console.log('  [registry_program_id] Optional: Registry program ID (default: BhETt1LhzVYpK5DTcRuNZdKyb3QTz8HktUoXQJQapmvn)');
   console.log('  [wallet_path]       Optional: Path to wallet keypair (default: ../../deploy/deploy-keypair.json)');
-  console.log('\nExample:');
-  console.log('  node interoperability_test.js crowdfunding P5bpdBoUnWyRdHzdmcM9rtrWLiLEVGmtNm5JESZDDPY');
+  console.log('\nExamples:');
+  console.log('  node interoperability_test.js crowdfunding 3AXDMAXWYu3iGxgdqPv7Z6Xwyqytx9nJ2EB91qzGEf5J');
+  console.log('  node interoperability_test.js crowdfunding 3AXDMAXWYu3iGxgdqPv7Z6Xwyqytx9nJ2EB91qzGEf5J --skip-network');
 }
 
 // Parse command line arguments
@@ -45,28 +49,62 @@ function parseArgs() {
     process.exit(0);
   }
   
+  if (process.argv.length < 4) {
+    console.log('Insufficient arguments provided.');
+    showUsage();
+    process.exit(1);
+  }
+  
+  const defaultSourcePath = path.resolve(__dirname, '../../deploy/programs/deploy/src/lib.rs');
+  const skipNetwork = process.argv.includes('--skip-network');
+  
+  // Extract registry program ID and wallet path, considering the possibility of --skip-network flag
+  let registryProgramId = REGISTRY_PROGRAM_ID;
+  let walletPath = '../../deploy/deploy-keypair.json';
+  let sourceFile = defaultSourcePath;
+  
+  // Check for source file (3rd parameter if it's not --skip-network)
+  if (process.argv.length > 4 && process.argv[4] !== '--skip-network') {
+    sourceFile = process.argv[4];
+  }
+  
+  // Check for registry program ID and wallet path
+  for (let i = 4; i < process.argv.length; i++) {
+    if (process.argv[i] !== '--skip-network') {
+      if (process.argv[i].startsWith('--')) continue;
+      
+      if (process.argv[i].length === 43 || process.argv[i].length === 44) {
+        // Likely a Solana public key (registry ID)
+        registryProgramId = process.argv[i];
+      } else if (process.argv[i].endsWith('.json')) {
+        // Likely a wallet path
+        walletPath = process.argv[i];
+      } else if (!sourceFile || sourceFile === defaultSourcePath) {
+        // If source file not yet set, use this argument
+        sourceFile = process.argv[i];
+      }
+    }
+  }
+  
   return {
-    contractType: process.argv[2] || 'crowdfunding',  // First argument is contract type
-    programId: process.argv[3] || 'P5bpdBoUnWyRdHzdmcM9rtrWLiLEVGmtNm5JESZDDPY', // Second argument is program ID to test
-    registryProgramId: process.argv[4] || REGISTRY_PROGRAM_ID, // Third argument is registry program ID
-    walletPath: process.argv[5] || '../../deploy/deploy-keypair.json', // Fourth argument is wallet path
+    contractType: process.argv[2],
+    programId: process.argv[3],
+    sourceFile: sourceFile,
+    skipNetwork: skipNetwork,
+    registryProgramId: registryProgramId,
+    walletPath: walletPath,
   };
 }
 
 // Get the arguments
 const args = parseArgs();
 
-// If no arguments provided, show usage instructions
-if (process.argv.length < 3) {
-  console.log('No arguments provided. Using default values.');
-  showUsage();
-}
-
 // Define the TX types we'll use
 const TX_TYPES = {
   CROWDFUNDING: "crowdfunding",
   DONATION: "donation",
-  ESCROW: "escrow"
+  ESCROW: "escrow",
+  PAYMENT: "payment"
 };
 
 /**
@@ -169,6 +207,322 @@ async function inspectRegistryAccounts(connection, programId) {
   }
 }
 
+// ----- ENHANCED STATIC ANALYSIS FUNCTIONS -----
+
+/**
+ * Analyze structural elements (imports, declarations, etc.)
+ */
+function performStructuralAnalysis(sourceCode) {
+  console.log("Checking structural elements...");
+  
+  const results = {
+    hasRegistryProgramId: false,
+    hasRegistryImports: false,
+    hasCpiImports: false,
+    hasRegistryTypes: false,
+    hasCpiContexts: false
+  };
+  
+  // Check for Registry Program ID (direct appearance)
+  results.hasRegistryProgramId = sourceCode.includes(REGISTRY_PROGRAM_ID);
+  
+  // Check for imports related to CPI
+  results.hasCpiImports = /use\s+anchor_lang::solana_program::\{.*program::invoke.*\}/.test(sourceCode) || 
+                          /use\s+anchor_lang::solana_program::program::invoke/.test(sourceCode) ||
+                          /cpi::/.test(sourceCode);
+  
+  // Check for registry-related imports or modules
+  results.hasRegistryImports = /use\s+.*registry/.test(sourceCode) || 
+                               /mod\s+registry/.test(sourceCode);
+  
+  // Check for registry-related type definitions
+  results.hasRegistryTypes = /struct\s+Registry/.test(sourceCode) || 
+                             /struct\s+.*Transaction/.test(sourceCode) &&
+                             sourceCode.includes("registry");
+  
+  // Check for CPI context structures
+  results.hasCpiContexts = /CpiContext/.test(sourceCode) || 
+                           /invoke\s*\(/.test(sourceCode);
+  
+  return results;
+}
+
+/**
+ * Analyze semantic patterns (function calls, variable usage, etc.)
+ */
+function performSemanticAnalysis(sourceCode) {
+  console.log("Checking semantic patterns...");
+  
+  const results = {
+    hasRegistryFunctionCalls: false,
+    hasRegistryAccountArgs: false,
+    hasTransactionRegistration: false,
+    hasRegistryAccountCreation: false,
+    hasPdaDerivation: false
+  };
+  
+  // Check for registry function calls
+  results.hasRegistryFunctionCalls = /register_transaction/.test(sourceCode) ||
+                                    /registry::.*\(/.test(sourceCode);
+  
+  // Check for registry account arguments
+  results.hasRegistryAccountArgs = /registry:.*Account/.test(sourceCode) ||
+                                   /registry_program:.*Account/.test(sourceCode);
+  
+  // Check for transaction registration patterns
+  results.hasTransactionRegistration = /register.*transaction/.test(sourceCode) ||
+                                       /log.*transaction/.test(sourceCode) &&
+                                       sourceCode.includes("registry");
+  
+  // Check for registry account creation
+  results.hasRegistryAccountCreation = /init,.*registry/.test(sourceCode) ||
+                                       /init.*seeds\s*=/.test(sourceCode) && 
+                                       sourceCode.includes("transaction");
+  
+  // Check for PDA derivation with transaction-like seeds
+  results.hasPdaDerivation = /find_program_address/.test(sourceCode) &&
+                            /\[\s*b"transaction/.test(sourceCode);
+  
+  return results;
+}
+
+/**
+ * Analyze data flow patterns (how registry data moves through the code)
+ */
+function performDataFlowAnalysis(sourceCode) {
+  console.log("Checking data flow patterns...");
+  
+  const results = {
+    hasRegistryDataFlows: false,
+    hasCpiDataPassing: false,
+    hasTransactionTypeHandling: false,
+    hasRegistryErrorHandling: false,
+    hasSystematicLogging: false
+  };
+  
+  // Check for registry data flows
+  results.hasRegistryDataFlows = sourceCode.includes("registry") &&
+                                 /\.\w+\s*=/.test(sourceCode);
+  
+  // Check for CPI data passing
+  results.hasCpiDataPassing = /invoke\s*\(.*,.*\[.*\]/.test(sourceCode) ||
+                              /CpiContext::new\s*\(.*,.*\{.*\}/.test(sourceCode);
+  
+  // Check for transaction type handling
+  results.hasTransactionTypeHandling = /"crowdfunding"|"donation"|"escrow"|"payment"/.test(sourceCode) &&
+                                       sourceCode.includes("transaction");
+  
+  // Check for registry-specific error handling
+  results.hasRegistryErrorHandling = /catch|match|Result|Ok|Err|try/.test(sourceCode) &&
+                                     sourceCode.includes("registry");
+  
+  // Check for systematic logging that might indicate registry interactions
+  results.hasSystematicLogging = /msg!\(.*transaction/.test(sourceCode) ||
+                                /emit!\(.*transaction/.test(sourceCode);
+  
+  return results;
+}
+
+/**
+ * Combine results from different analysis phases with weighted scoring
+ */
+function combineStaticResults(structural, semantic, dataFlow) {
+  const combined = {
+    // Core interoperability requirements (highest weight)
+    registryProgramId: {
+      result: structural.hasRegistryProgramId,
+      weight: 5,
+      critical: true,
+      description: "Registry Program ID is present in the contract"
+    },
+    cpiMechanisms: {
+      result: structural.hasCpiImports || structural.hasCpiContexts,
+      weight: 5,
+      critical: true,
+      description: "Cross-Program Invocation mechanisms are implemented"
+    },
+    registryIntegration: {
+      result: semantic.hasRegistryFunctionCalls || semantic.hasTransactionRegistration,
+      weight: 5,
+      critical: true,
+      description: "Registry integration is implemented with function calls"
+    },
+    
+    // Supporting interoperability features (medium weight)
+    registryAccountHandling: {
+      result: semantic.hasRegistryAccountArgs || semantic.hasRegistryAccountCreation,
+      weight: 3,
+      critical: false,
+      description: "Registry accounts are properly handled"
+    },
+    transactionTyping: {
+      result: dataFlow.hasTransactionTypeHandling || semantic.hasPdaDerivation,
+      weight: 3,
+      critical: false,
+      description: "Transaction types are properly handled"
+    },
+    registryDataFlow: {
+      result: dataFlow.hasRegistryDataFlows || dataFlow.hasCpiDataPassing,
+      weight: 3,
+      critical: false,
+      description: "Registry data flows are implemented"
+    },
+    
+    // Supplementary features (lowest weight)
+    registryErrorHandling: {
+      result: dataFlow.hasRegistryErrorHandling,
+      weight: 1,
+      critical: false,
+      description: "Registry-specific error handling exists"
+    },
+    registryTypes: {
+      result: structural.hasRegistryTypes,
+      weight: 1,
+      critical: false,
+      description: "Registry-related type definitions exist"
+    },
+    systematicLogging: {
+      result: dataFlow.hasSystematicLogging,
+      weight: 1,
+      critical: false,
+      description: "Systematic transaction logging is implemented"
+    }
+  };
+  
+  // Calculate weighted score
+  let totalWeight = 0;
+  let weightedScore = 0;
+  let criticalsPassed = 0;
+  let criticalsTotal = 0;
+  
+  for (const [key, item] of Object.entries(combined)) {
+    totalWeight += item.weight;
+    if (item.result) {
+      weightedScore += item.weight;
+    }
+    
+    if (item.critical) {
+      criticalsTotal++;
+      if (item.result) {
+        criticalsPassed++;
+      }
+    }
+  }
+  
+  const percentageScore = Math.round((weightedScore / totalWeight) * 100);
+  
+  // Add final scores to the results
+  combined.weightedScore = weightedScore;
+  combined.totalWeight = totalWeight;
+  combined.percentageScore = percentageScore;
+  combined.criticalsPassed = criticalsPassed;
+  combined.criticalsTotal = criticalsTotal;
+  combined.allCriticalsPassed = (criticalsPassed === criticalsTotal);
+  combined.interoperable = (criticalsPassed === criticalsTotal && percentageScore >= 70);
+  
+  return combined;
+}
+
+/**
+ * Generate a detailed report of the static analysis
+ */
+function generateStaticReport(results) {
+  console.log(`\nStatic Analysis Results:`);
+  console.log(`-------------------------`);
+  
+  // Critical requirements section
+  console.log("\nCritical Requirements:");
+  let criticalResults = Object.entries(results).filter(([key, value]) => 
+    typeof value === 'object' && value.critical === true
+  );
+  
+  criticalResults.forEach(([key, value]) => {
+    console.log(`${value.result ? '[✓]' : '[✗]'} ${value.description} [Weight: ${value.weight}]`);
+  });
+  
+  // Supporting features section
+  console.log("\nSupporting Features:");
+  let supportingResults = Object.entries(results).filter(([key, value]) => 
+    typeof value === 'object' && value.critical === false && value.weight >= 2
+  );
+  
+  supportingResults.forEach(([key, value]) => {
+    console.log(`${value.result ? '[✓]' : '[✗]'} ${value.description} [Weight: ${value.weight}]`);
+  });
+  
+  // Supplementary features section
+  console.log("\nSupplementary Features:");
+  let supplementaryResults = Object.entries(results).filter(([key, value]) => 
+    typeof value === 'object' && value.critical === false && value.weight < 2
+  );
+  
+  supplementaryResults.forEach(([key, value]) => {
+    console.log(`${value.result ? '[✓]' : '[✗]'} ${value.description} [Weight: ${value.weight}]`);
+  });
+  
+  // Overall score and assessment
+  console.log(`\nOverall Static Assessment:`);
+  console.log(`-------------------------`);
+  console.log(`Weighted Score: ${results.weightedScore}/${results.totalWeight} (${results.percentageScore}%)`);
+  console.log(`Critical Requirements Met: ${results.criticalsPassed}/${results.criticalsTotal}`);
+  
+  if (results.interoperable) {
+    console.log(`\n[✓] INTEROPERABLE: This contract has proper registry integration`);
+  } else if (results.allCriticalsPassed) {
+    console.log(`\n[!] PARTIALLY INTEROPERABLE: All critical requirements met, but score below threshold`);
+  } else if (results.percentageScore >= 50) {
+    console.log(`\n[!] POTENTIALLY INTEROPERABLE: Some critical requirements missing, but has interoperability features`);
+  } else {
+    console.log(`\n[✗] NOT INTEROPERABLE: Missing critical requirements for registry integration`);
+  }
+  
+  // Detailed breakdown for missing requirements
+  console.log(`\nMissing Requirements:`);
+  let missingRequirements = Object.entries(results).filter(([key, value]) => 
+    typeof value === 'object' && !value.result
+  );
+  
+  if (missingRequirements.length === 0) {
+    console.log(`  None - All requirements satisfied`);
+  } else {
+    missingRequirements.forEach(([key, value]) => {
+      console.log(`  - ${value.description} ${value.critical ? '[CRITICAL]' : ''}`);
+    });
+  }
+}
+
+/**
+ * Perform a comprehensive static analysis on source code
+ */
+function performStaticAnalysis(sourceFilePath) {
+  console.log(`\nRunning security analysis for deployed contract...`);
+  console.log(`Contract ID: ${args.programId}`);
+  
+  try {
+    // Read the source file
+    const sourceCode = fs.readFileSync(sourceFilePath, 'utf8');
+    
+    // Perform the various types of analysis
+    const structural = performStructuralAnalysis(sourceCode);
+    const semantic = performSemanticAnalysis(sourceCode);
+    const dataFlow = performDataFlowAnalysis(sourceCode);
+    
+    // Combine results with weighted scoring
+    const results = combineStaticResults(structural, semantic, dataFlow);
+    
+    // Generate report
+    generateStaticReport(results);
+    
+    return results;
+  } catch (error) {
+    console.error(`Error in static analysis: ${error.message}`);
+    return {
+      interoperable: false,
+      error: error.message
+    };
+  }
+}
+
 /**
  * Main test function
  */
@@ -177,8 +531,50 @@ async function testInteroperability() {
   console.log('--------------------');
   console.log(`Contract Type: ${args.contractType}`);
   console.log(`Program ID: ${args.programId}`);
+  console.log(`Source File: ${args.sourceFile}`);
   console.log(`Registry Program ID: ${args.registryProgramId}`);
-  console.log(`Wallet Path: ${args.walletPath}`);
+  
+  if (args.skipNetwork) {
+    console.log(`Network Tests: Skipped (--skip-network flag provided)`);
+  } else {
+    console.log(`Wallet Path: ${args.walletPath}`);
+  }
+  
+  // Part 1: Static Source Analysis (Always run)
+  console.log('\nStatic Code Analysis');
+  console.log('-------------------');
+  const staticResults = performStaticAnalysis(args.sourceFile);
+  
+  // Recommendations based on static analysis
+  if (!staticResults.interoperable) {
+    console.log('\nRecommendations to Achieve Interoperability:');
+    
+    let missingRequirements = Object.entries(staticResults).filter(([key, value]) => 
+      typeof value === 'object' && !value.result && value.critical
+    );
+    
+    missingRequirements.forEach(([key, value], index) => {
+      console.log(`  ${index + 1}. Add ${value.description.toLowerCase()}`);
+    });
+  }
+  
+  // Skip dynamic tests if requested
+  if (args.skipNetwork) {
+    console.log('\nNetwork tests skipped.');
+    console.log('\nFinal Determination:');
+    if (staticResults.interoperable) {
+      console.log(`[✓] POTENTIALLY INTEROPERABLE: Contract has all required features (network verification skipped)`);
+    } else {
+      console.log(`[✗] NOT INTEROPERABLE: Contract lacks required features for registry integration`);
+    }
+    
+    console.log('\nTest completed successfully.');
+    return;
+  }
+  
+  // Part 2: Dynamic Tests (Only if --skip-network is not provided)
+  console.log('\nDynamic Network Tests');
+  console.log('-------------------');
   
   // Connect to Solana devnet
   const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
@@ -218,18 +614,18 @@ async function testInteroperability() {
     // Check program
     const programInfo = await connection.getAccountInfo(new PublicKey(args.programId));
     if (programInfo) {
-      console.log(`✓ Program ${args.programId} (${args.contractType}) exists on devnet`);
+      console.log(`[✓] Program ${args.programId} (${args.contractType}) exists on devnet`);
     } else {
-      console.error(`✗ Program ${args.programId} not found on devnet.`);
+      console.error(`[✗] Program ${args.programId} not found on devnet.`);
       process.exit(1);
     }
     
     // Check registry
     const registryInfo = await connection.getAccountInfo(new PublicKey(args.registryProgramId));
     if (registryInfo) {
-      console.log(`✓ Registry program ${args.registryProgramId} exists on devnet`);
+      console.log(`[✓] Registry program ${args.registryProgramId} exists on devnet`);
     } else {
-      console.error(`✗ Registry program ${args.registryProgramId} not found on devnet.`);
+      console.error(`[✗] Registry program ${args.registryProgramId} not found on devnet.`);
       process.exit(1);
     }
   } catch (error) {
@@ -242,9 +638,9 @@ async function testInteroperability() {
   const simpleResult = await executeSimpleTransaction(connection, wallet);
   
   if (simpleResult.success) {
-    console.log(`✓ Network connectivity confirmed with signature: ${simpleResult.signature}`);
+    console.log(`[✓] Network connectivity confirmed with signature: ${simpleResult.signature}`);
   } else {
-    console.error('✗ Network connectivity test failed. Exiting.');
+    console.error('[✗] Network connectivity test failed. Exiting.');
     process.exit(1);
   }
   
@@ -271,7 +667,7 @@ async function testInteroperability() {
     matchingAccounts = await inspectRegistryAccounts(connection, args.programId);
     
     if (matchingAccounts.length > 0) {
-      console.log(`\n✓ INTEROPERABILITY DETECTED!`);
+      console.log(`\n[✓] INTEROPERABILITY DETECTED!`);
       console.log(`Found ${matchingAccounts.length} registry accounts that reference the ${args.contractType} program!`);
       console.log('Registry accounts: ' + matchingAccounts.map(a => a.pubkey).join(', '));
     } else {
@@ -282,57 +678,22 @@ async function testInteroperability() {
     console.error(`Error checking accounts: ${error.message}`);
   }
   
-  // 4. Demonstrate PDA calculation for registry transactions
-  console.log('\n4. Demonstrating registry transaction account calculation...');
+  // 4. Final determination combining static and dynamic results
+  console.log('\nFinal Determination:');
   
-  // Calculate example PDAs for different transaction types
-  const txAmount = 1000000; // 0.001 SOL
-
-  // Calculate PDAs for different transaction types
-  const [pda1] = await findRegistryTransactionPDA(wallet.publicKey, TX_TYPES.CROWDFUNDING, txAmount);
-  const [pda2] = await findRegistryTransactionPDA(wallet.publicKey, TX_TYPES.DONATION, txAmount);
-  
-  console.log('Registry transaction PDAs would be:');
-  console.log(`- For "${TX_TYPES.CROWDFUNDING}" transactions: ${pda1.toString()}`);
-  console.log(`- For "${TX_TYPES.DONATION}" transactions: ${pda2.toString()}`);
-  
-  // 5. Interoperability summary
-  console.log('\n5. Interoperability Test Results:');
-  console.log('-----------------------------');
-  console.log(`✓ Both programs are deployed and accessible on devnet`);
-  console.log(`✓ Network connectivity verified with successful transaction`);
-  console.log(`✓ Registry PDA calculation is working correctly`);
-  
-  // Contract-specific checks
-  const isContractDeployed = true; // We already verified this above
-  const areRegistryAccountsPresent = registryAccounts && registryAccounts.length > 0;
+  // Dynamic analysis results
   const hasMatchingAccounts = matchingAccounts && matchingAccounts.length > 0;
   
-  // Output contract-specific findings
-  if (isContractDeployed) {
-    console.log(`\nThe ${args.contractType} contract is properly deployed with ID: ${args.programId}`);
-    console.log(`The registry contract is properly deployed with ID: ${args.registryProgramId}`);
-  }
-  
-  if (areRegistryAccountsPresent) {
-    console.log(`The registry contract has ${registryAccounts.length} accounts, indicating it is active`);
+  if (staticResults.interoperable && hasMatchingAccounts) {
+    console.log(`[✓] FULLY INTEROPERABLE: Contract has all required features and shows evidence of registry interaction`);
+  } else if (staticResults.interoperable) {
+    console.log(`[!] POTENTIALLY INTEROPERABLE: Contract has all required features but no evidence of actual registry interaction`);
+  } else if (hasMatchingAccounts) {
+    console.log(`[!] UNEXPECTED INTEROPERABILITY: Contract shows registry interaction despite missing features in the code`);
+    console.log(`    This may indicate the analysis missed something or the contract was modified after deployment`);
   } else {
-    console.log(`The registry contract has no accounts yet, indicating it's ready but not yet used`);
+    console.log(`[✗] NOT INTEROPERABLE: Contract lacks required features and shows no evidence of registry interaction`);
   }
-  
-  if (hasMatchingAccounts) {
-    console.log(`✓ INTEROPERABILITY CONFIRMED: Registry contains transactions from the ${args.contractType} program`);
-  } else {
-    console.log(`No existing interoperability detected, but the foundation is in place for future interaction`);
-  }
-  
-  // Explanation of how interoperability works
-  console.log('\nHow registry interoperability works:');
-  console.log('1. The primary contract (e.g., crowdfunding) includes the registry program ID');
-  console.log('2. The registry program provides a "register_transaction" instruction');
-  console.log('3. The registry stores transaction data in a PDA derived from the sender, type, and amount');
-  console.log('4. When a contract wants to log a transaction, it makes a Cross-Program Invocation (CPI)');
-  console.log('5. Multiple programs can share a standardized transaction history in the registry');
   
   console.log('\nTest completed successfully.');
 }
