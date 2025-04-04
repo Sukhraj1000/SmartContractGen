@@ -17,6 +17,54 @@ pub struct RegistryTransactionData {
     pub description: String,
 }
 
+// Helper function to register a transaction with the registry
+pub fn register_transaction_helper<'info>(
+    ctx: CpiContext<'_, '_, '_, 'info, RegisterTransaction<'info>>,
+    tx_type: String,
+    amount: u64,
+    initiator: Pubkey,
+    target_account: Pubkey,
+    description: String,
+) -> Result<()> {
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: ctx.accounts.registry_program.key(),
+        accounts: vec![
+            AccountMeta::new(ctx.accounts.payer.key(), true),
+            AccountMeta::new_readonly(ctx.accounts.caller_program_id.key(), false),
+            AccountMeta::new(ctx.accounts.transaction_record.key(), false),
+            AccountMeta::new_readonly(ctx.accounts.system_program.key(), false),
+        ],
+        data: anchor_lang::AnchorSerialize::try_to_vec(&RegisterTransactionArgs {
+            tx_type,
+            amount,
+            initiator,
+            target_account,
+            description,
+        })?,
+    };
+    
+    anchor_lang::solana_program::program::invoke(
+        &ix,
+        &[
+            ctx.accounts.payer.to_account_info(),
+            ctx.accounts.caller_program_id.to_account_info(),
+            ctx.accounts.transaction_record.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+        ],
+    )?;
+    
+    Ok(())
+}
+
+#[derive(AnchorSerialize)]
+struct RegisterTransactionArgs {
+    tx_type: String,
+    amount: u64,
+    initiator: Pubkey,
+    target_account: Pubkey,
+    description: String,
+}
+
 #[program]
 pub mod deploy {
     use super::*;
@@ -52,7 +100,10 @@ pub mod deploy {
         Ok(())
     }
 
-    pub fn donate(ctx: Context<Donate>, amount: u64) -> Result<()> {
+    pub fn donate(
+        ctx: Context<Donate>,
+        amount: u64
+    ) -> Result<()> {
         // Validate campaign state
         require!(ctx.accounts.campaign.is_active, CampaignError::CampaignInactive);
         require!(
@@ -86,7 +137,7 @@ pub mod deploy {
         campaign.last_updated_at = Clock::get().expect("Failed to get clock").unix_timestamp;
         
         // Create registry transaction data
-        let _registry_tx_data = RegistryTransactionData {
+        let tx_data = RegistryTransactionData {
             tx_type: "donation".to_string(),
             amount,
             initiator: ctx.accounts.donor.key(),
@@ -99,7 +150,9 @@ pub mod deploy {
         Ok(())
     }
 
-    pub fn finalize_campaign(ctx: Context<FinalizeCampaign>) -> Result<()> {
+    pub fn finalize_campaign(
+        ctx: Context<FinalizeCampaign>
+    ) -> Result<()> {
         // Validate campaign state
         require!(ctx.accounts.campaign.is_active, CampaignError::CampaignInactive);
         require!(
@@ -131,7 +184,7 @@ pub mod deploy {
                 .ok_or(CampaignError::MathOverflow)?;
                 
             // Create registry transaction data
-            let _registry_tx_data = RegistryTransactionData {
+            let tx_data = RegistryTransactionData {
                 tx_type: "campaign_finalized".to_string(),
                 amount: raised_amount,
                 initiator: ctx.accounts.creator.key(),
@@ -196,6 +249,19 @@ pub struct FinalizeCampaign<'info> {
     /// CHECK: This account holds the campaign funds
     #[account(mut)]
     pub campaign_account: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct RegisterTransaction<'info> {
+    /// CHECK: The payer for the transaction
+    pub payer: AccountInfo<'info>,
+    /// CHECK: The program ID of the calling program
+    pub caller_program_id: AccountInfo<'info>,
+    /// CHECK: The transaction record PDA
+    pub transaction_record: AccountInfo<'info>,
+    /// CHECK: The registry program
+    pub registry_program: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
 }
 
