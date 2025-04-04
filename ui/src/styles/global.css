@@ -1,8 +1,48 @@
+/* Global styles */
 body {
-  font-family: Arial, sans-serif;
-  background-image: linear-gradient(to right, #0f2027, #203a43, #2c5364);
   margin: 0;
   padding: 0;
+  background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+  min-height: 100vh;
+  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  color: #fff;
+}
+
+:root {
+  --primary-color: #3d5afe;
+  --secondary-color: #00b0ff;
+  --dark-bg: #192231;
+  --light-bg: #f8f9fa;
+  --text-primary: #212121;
+  --text-secondary: #757575;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Code styling */
+.code-block {
+  background-color: #1e2329;
+  color: #e6e6e6;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .container {

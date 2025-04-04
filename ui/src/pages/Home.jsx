@@ -5,26 +5,32 @@ import {
   Typography,
   Container,
   CircularProgress,
-  Grid2,
+  Grid,
+  Box,
+  Paper,
+  Card,
+  CardContent,
+  useTheme
 } from "@mui/material";
 import { motion } from "framer-motion";
 import { RocketLaunch, UploadFile } from "@mui/icons-material";
-<<<<<<< HEAD
-import "../styles/global.css";
-=======
 import "../styles/global.css"; 
->>>>>>> 016c6a8 (generated keys and addresses with output of smart contracts)
 
-
+/**
+ * Home page component that serves as the main entry point for the application.
+ * Provides navigation options for creating new contracts.
+ * */
 const Home = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const theme = useTheme();
 
+  // Handle navigation with loading animation
   const handleNavigation = (path) => {
     setLoading(true);
     setTimeout(() => {
       navigate(path);
-    }, 1000);
+    }, 600);
   };
 
   return (
@@ -36,91 +42,74 @@ const Home = () => {
         justifyContent: "center",
         alignItems: "center",
         textAlign: "center",
-        color: "white",
         padding: "20px",
       }}
     >
+      {/* Animated content container */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
+        style={{ width: '100%', maxWidth: 1000 }}
       >
-        <Grid2 container spacing={3} direction="column" alignItems="center">
-          <Grid2 item>
-            <Typography variant="h2" fontWeight="bold" gutterBottom>
-              Solana Smart Contract Generator
-            </Typography>
-            <Typography variant="h4" sx={{ maxWidth: "800px", margin: "auto", mb: 1 }}>
-              Create and deploy Solana smart contracts easily with AI-automation.
-            </Typography>
-            <Typography variant="h6" sx={{ maxWidth: "700px", margin: "auto", mb: 2 }}>
-                Either start a new Smart Contract and Manually input data or upload a document to fast track the process.
-            </Typography>
-          </Grid2>
+        {/* Main content paper with blur effect */}
+        <Paper 
+          elevation={4} 
+          sx={{ 
+            py: 6, 
+            px: 4, 
+            borderRadius: 3,
+            background: 'rgba(29, 38, 48, 0.75)',
+            backdropFilter: 'blur(10px)'
+          }}
+        >
+          <Grid container spacing={4} direction="column" alignItems="center">
+            {/* Header section */}
+            <Grid item>
+              <Typography variant="h2" fontWeight="bold" gutterBottom>
+                Solana Smart Contract Generator
+              </Typography>
+              <Typography variant="h5" sx={{ maxWidth: "800px", margin: "auto", mb: 4, opacity: 0.9 }}>
+                Create and deploy Solana smart contracts easily with AI-automation.
+              </Typography>
+            </Grid>
 
-          <Grid2 item container spacing={3} justifyContent="center" sx={{ maxWidth: "600px" }}>
-            {loading ? (
-              <CircularProgress color="inherit" />
-            ) : (
-              <>
-                <Grid2 item xs={12} sm={6}>
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    size="large"
-                    startIcon={<RocketLaunch />}
-                    sx={{
-                      backgroundColor: "#ff9800",
-                      "&:hover": { backgroundColor: "#f57c00" },
-                      fontSize: "1.1rem",
-                      padding: "12px",
-                    }}
-                    onClick={() => handleNavigation("/wizard")}
-                  >
-                    Start New Contract
-                  </Button>
-                </Grid2>
-
-                <Grid2 item xs={12} sm={6}>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    size="large"
-                    startIcon={<UploadFile />}
-                    sx={{
-                      borderColor: "white",
-                      color: "white",
-                      fontSize: "1.1rem",
-                      padding: "12px",
-                      "&:hover": {
-                        backgroundColor: "rgba(255,255,255,0.2)",
-                      },
-                    }}
-                    onClick={() => handleNavigation("/upload")}
-                  >
-                    Upload Document
-                  </Button>
-                </Grid2>
-              </>
-            )}
-          </Grid2>
-
-          <Grid2 item mt={6}>
-            <Typography variant="body1">
-              Help?{" "}
-              <a
-                href="/docs"
-                style={{
-                  color: "yellow",
-                  textDecoration: "none",
-                  fontWeight: "bold",
-                }}
-              >
-                View Documentation
-              </a>
-            </Typography>
-          </Grid2>
-        </Grid2>
+            {/* Action buttons section */}
+            <Grid item container spacing={4} justifyContent="center" sx={{ maxWidth: "800px" }}>
+              {loading ? (
+                /* Loading indicator */
+                <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                  <CircularProgress size={60} />
+                </Box>
+              ) : (
+                <>
+                  {/* New contract button */}
+                  <Grid item xs={20}>
+                    <Card elevation={2} sx={{ height: '100%', borderRadius: 2, overflow: 'hidden' }}>
+                      <CardContent sx={{ p: 0, height: '100%' }}>
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          size="large"
+                          startIcon={<RocketLaunch />}
+                          sx={{
+                            height: '100%',
+                            py: 3,
+                            borderRadius: 0,
+                            fontSize: "1.2rem"
+                          }}
+                          onClick={() => handleNavigation("/contract-form")}
+                        >
+                          Start New Contract
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                </>
+              )}
+            </Grid>
+          </Grid>
+        </Paper>
       </motion.div>
     </Container>
   );

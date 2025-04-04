@@ -1,0 +1,1 @@
+{"contract_type": "escrow", "contract_name": "TestEscrow", "parameters": {"amount": "10", "currency": "SOL", "release_condition": "test"}}

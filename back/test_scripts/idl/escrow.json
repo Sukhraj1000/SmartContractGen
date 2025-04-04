@@ -1,0 +1,248 @@
+{
+  "address": "6bxjHnAj8m5Fs6hve9xeLcKyN4b2gGonCnBDsv59DNXQ",
+  "metadata": {
+    "name": "deploy",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with SmartContractGen"
+  },
+  "instructions": [
+    {
+      "name": "initialize",
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "sender",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "receiver"
+        },
+        {
+          "name": "escrow_authority"
+        },
+        {
+          "name": "escrow_account",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "registry_program"
+        },
+        {
+          "name": "registry_transaction",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "release_condition",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "register_transaction",
+      "discriminator": [
+        158,
+        135,
+        86,
+        133,
+        215,
+        10,
+        181,
+        168
+      ],
+      "accounts": [
+        {
+          "name": "registry_program"
+        },
+        {
+          "name": "registry_transaction",
+          "writable": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "data",
+          "type": {
+            "defined": {
+              "name": "RegistryTransactionData"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "release",
+      "discriminator": [
+        253,
+        249,
+        15,
+        206,
+        28,
+        127,
+        193,
+        241
+      ],
+      "accounts": [
+        {
+          "name": "receiver",
+          "writable": true
+        },
+        {
+          "name": "escrow_authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "escrow_account",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "registry_program"
+        },
+        {
+          "name": "registry_transaction",
+          "writable": true
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "EscrowAccount",
+      "discriminator": [
+        36,
+        69,
+        48,
+        18,
+        128,
+        225,
+        125,
+        135
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "UnauthorizedAccess",
+      "msg": "Unauthorized access"
+    },
+    {
+      "code": 6001,
+      "name": "AlreadyCompleted",
+      "msg": "Escrow is already completed"
+    },
+    {
+      "code": 6002,
+      "name": "MathOverflow",
+      "msg": "Math overflow error"
+    },
+    {
+      "code": 6003,
+      "name": "SerializationError",
+      "msg": "Serialization error"
+    },
+    {
+      "code": 6004,
+      "name": "RegistryError",
+      "msg": "Registry program error"
+    }
+  ],
+  "types": [
+    {
+      "name": "EscrowAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "sender",
+            "type": "pubkey"
+          },
+          {
+            "name": "receiver",
+            "type": "pubkey"
+          },
+          {
+            "name": "escrow_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "release_condition",
+            "type": "string"
+          },
+          {
+            "name": "is_completed",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RegistryTransactionData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tx_type",
+            "type": "string"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "initiator",
+            "type": "pubkey"
+          },
+          {
+            "name": "target_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ]
+}

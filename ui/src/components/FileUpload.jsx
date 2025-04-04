@@ -1,15 +1,23 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { Button, Box, Typography, Grid2, Container } from "@mui/material";
+import { Button, Box, Typography, Grid, Container } from "@mui/material";
 
+/**
+ * File upload component that handles document parsing and analysis.
+ * Provides a user interface for uploading files and displays upload status.
+ * 
+ * @param {Function} onFileParsed - Callback function to handle parsed file data
+ */
 function FileUpload({ onFileParsed }) {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
+  // Handle file selection from input
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
   };
 
+  // Process file upload and parsing
   const handleUpload = async () => {
     if (!file) return;
     setUploading(true);
@@ -28,14 +36,16 @@ function FileUpload({ onFileParsed }) {
 
   return (
     <Container maxWidth="sm" sx={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center" }}>
-      <Grid2 container spacing={3} direction="column" alignItems="center" justifyContent="center">
-        <Grid2 item>
+      <Grid container spacing={3} direction="column" alignItems="center" justifyContent="center">
+        {/* Upload section title */}
+        <Grid item>
           <Typography variant="h5" sx={{ color: "white", textAlign: "center" }}>
             Upload Document
           </Typography>
-        </Grid2>
+        </Grid>
 
-        <Grid2 item>
+        {/* File input field */}
+        <Grid item>
           <input
             type="file"
             onChange={handleFileChange}
@@ -46,9 +56,10 @@ function FileUpload({ onFileParsed }) {
               display: "block",
             }}
           />
-        </Grid2>
+        </Grid>
 
-        <Grid2 item>
+        {/* Upload and parse button */}
+        <Grid item>
           <Button
             variant="contained"
             color="primary"
@@ -58,8 +69,8 @@ function FileUpload({ onFileParsed }) {
           >
             {uploading ? "Uploading..." : "Upload & Parse"}
           </Button>
-        </Grid2>
-      </Grid2>
+        </Grid>
+      </Grid>
     </Container>
   );
 }
