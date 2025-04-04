@@ -20,7 +20,7 @@ const TX_INTERVAL = 1000; // 1 second between transactions
 // Program IDs for different contract types
 const PROGRAM_IDS = {
   escrow: "6bxjHnAj8m5Fs6hve9xeLcKyN4b2gGonCnBDsv59DNXQ",
-  crowdfunding: "6bxjHnAj8m5Fs6hve9xeLcKyN4b2gGonCnBDsv59DNXQ", // Replace with actual crowdfunding ID when deployed
+  crowdfunding: "P5bpdBoUnWyRdHzdmcM9rtrWLiLEVGmtNm5JESZDDPY", // Replace with actual crowdfunding ID when deployed
   // Add more contract types as needed
 };
 
