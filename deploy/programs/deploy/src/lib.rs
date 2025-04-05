@@ -1,281 +1,375 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{program::invoke, system_instruction};
+use anchor_lang::solana_program::{program::invoke_signed, system_instruction};
 
-declare_id!("3AXDMAXWYu3iGxgdqPv7Z6Xwyqytx9nJ2EB91qzGEf5J");
+declare_id!("4cxUnCwFNdjbg33t8Di6DwA18c55oXkvtXWXC3sdMUdo");
 
 #[program]
-pub mod crowdfunding {
+pub mod escrow {
     use super::*;
 
-    // Initialize a crowdfunding campaign
-    // FLAW: No proper validation for minimum amount or deadline
-    pub fn initialize(
-        ctx: Context<Initialize>,
-        name: String, 
-        description: String,
-        target_amount: u64,
-        deadline: i64
-    ) -> Result<()> {
-        // Inefficient - no checked math operations
-        // FLAW: Using unwrap() which could panic
-        if deadline < Clock::get().unwrap().unix_timestamp {
-            return Err(CampaignError::DeadlineShouldBeInFuture.into());
-        }
+    // Initialize an escrow transaction
+    pub fn initialize(ctx: Context<Initialize>, amount: u64, release_date: i64) -> Result<()> {
+        // Prepare the data first
+        let seller_key = ctx.accounts.seller.key();
+        let buyer_key = ctx.accounts.buyer.key();
+        let escrow_key = ctx.accounts.escrow_account.key();
+        
+        // Set up escrow account
+        let escrow_account = &mut ctx.accounts.escrow_account;
+        escrow_account.seller = seller_key;
+        escrow_account.buyer = buyer_key;
+        escrow_account.amount = amount;
+        escrow_account.release_date = release_date;
+        escrow_account.is_completed = false;
+        escrow_account.is_cancelled = false;
 
-        let campaign = &mut ctx.accounts.campaign;
-        campaign.admin = ctx.accounts.admin.key();
-        campaign.name = name;
-        campaign.description = description;
-        campaign.target_amount = target_amount;
-        campaign.deadline = deadline;
-        campaign.amount_raised = 0;
-        campaign.closed = false;
-        
-        // FLAW: Create an unnecessary allocation on the stack each time
-        let mut campaign_details = vec![];
-        for _ in 0..100 {  // FLAW: Inefficient loop that does nothing useful
-            campaign_details.push(1);
-        }
-        
-        // FLAW: Log too much data - wastes compute units
-        msg!("Campaign details follow:");
-        msg!("Name: {}", campaign.name);
-        msg!("Description: {}", campaign.description);
-        msg!("Target: {}", campaign.target_amount);
-        msg!("Deadline: {}", campaign.deadline);
-        msg!("Admin: {}", campaign.admin);
-        
-        Ok(())
-    }
-
-    // Donate to the campaign
-    // FLAW: No proper validation for donation amount
-    pub fn donate(ctx: Context<Donate>, amount: u64) -> Result<()> {
-        // FLAW: Unnecessary memory allocation
-        let campaign_bytes = ctx.accounts.campaign.try_to_vec()?;
-        let _copy = campaign_bytes.clone();  // Wasteful cloning
-        
-        // More inefficient logging
-        msg!("Donation to campaign: {}", ctx.accounts.campaign.name);
-        msg!("Donation amount: {}", amount);
-        msg!("Donator: {}", ctx.accounts.donator.key());
-        
-        // FLAW: No deadline check here - allows donations after deadline
-        // if ctx.accounts.campaign.closed {
-        //     return Err(CampaignError::CampaignClosed.into());
-        // }
-        
-        // Inefficient string operations - create strings when not needed
-        // FLAW: Unnecessary memory allocations
-        let campaign_admin = format!("Admin: {}", ctx.accounts.campaign.admin);
-        let campaign_state = format!("Current state: {}", if ctx.accounts.campaign.closed { "closed" } else { "open" });
-        let _campaign_info = format!("{} - {}", campaign_admin, campaign_state);
-        
-        // Inefficient use of system_instruction without CPI signer seeds
-        // Makes multiple copies of data
-        let deposit_instruction = system_instruction::transfer(
-            &ctx.accounts.donator.key(),
-            &ctx.accounts.campaign.key(),
-            amount
+        // Transfer funds from seller to the escrow account
+        let transfer_instruction = system_instruction::transfer(
+            &seller_key,
+            &escrow_key,
+            amount,
         );
-        
-        invoke(
-            &deposit_instruction,
+
+        invoke_signed(
+            &transfer_instruction,
             &[
-                ctx.accounts.donator.to_account_info(),
-                ctx.accounts.campaign.to_account_info(),
+                ctx.accounts.seller.to_account_info(),
+                ctx.accounts.escrow_account.to_account_info(),
                 ctx.accounts.system_program.to_account_info(),
-            ]
+            ],
+            &[],
         )?;
-        
-        // FLAW: No checked math - vulnerable to overflow
-        ctx.accounts.campaign.amount_raised += amount;
-        
-        // FLAW - No registry integration for interoperability
-        
+
+        emit!(EscrowCreated {
+            escrow_id: escrow_key,
+            seller: seller_key,
+            buyer: buyer_key,
+            amount,
+            release_date,
+        });
+
         Ok(())
     }
 
-    // Withdraw funds from the campaign
-    // FLAW: No proper permission check to ensure only admin can withdraw
-    pub fn withdraw(ctx: Context<Withdraw>) -> Result<()> {
-        // Store some values from campaign account before we do any mutable borrows
-        let campaign_admin = ctx.accounts.campaign.admin;
-        let campaign_name = ctx.accounts.campaign.name.clone();
-        let campaign_amount_raised = ctx.accounts.campaign.amount_raised;
-        let campaign_deadline = ctx.accounts.campaign.deadline;
-        let campaign_closed = ctx.accounts.campaign.closed;
+    // Complete the escrow and release funds to the buyer
+    pub fn complete(ctx: Context<Complete>) -> Result<()> {
+        // Get necessary keys first to avoid borrowing conflicts
+        let escrow_key = ctx.accounts.escrow_account.key();
         
-        // FLAW: Inefficient time check - fetches clock multiple times
-        let current_time = Clock::get().unwrap().unix_timestamp;
-        msg!("Current time: {}", current_time);
-        // Another clock fetch - inefficient
-        if Clock::get().unwrap().unix_timestamp < campaign_deadline {
-            return Err(CampaignError::DeadlineNotReached.into());
-        }
-        
-        // FLAW: Redundant check
-        if campaign_closed {
-            return Err(CampaignError::CampaignClosed.into());
-        }
-        
-        // FLAW: Extra logging taking up compute units
-        msg!("Withdrawing funds...");
-        msg!("Admin: {}", campaign_admin);
-        msg!("Campaign: {}", campaign_name);
-        msg!("Amount raised: {}", campaign_amount_raised);
-        
-        // FLAW: This uses "remaining_accounts" but doesn't check them properly
-        // Leads to security issues
-        let dest_starting_lamports = ctx.accounts.admin.lamports();
-        
-        // FLAW: Another unnecessary allocation
-        let mut recipients = Vec::new();
-        recipients.push(ctx.accounts.admin.key());
-        
-        // Get campaign PDA info
-        let (_pda, _bump) = Pubkey::find_program_address(
-            &[b"campaign", campaign_admin.as_ref(), campaign_name.as_bytes()],
-            ctx.program_id
+        let escrow_account = &mut ctx.accounts.escrow_account;
+        let buyer_key = escrow_account.buyer;
+        let seller_key = escrow_account.seller;
+        let amount = escrow_account.amount;
+
+        // Check if escrow is already completed or cancelled
+        require!(!escrow_account.is_completed, EscrowError::AlreadyCompleted);
+        require!(!escrow_account.is_cancelled, EscrowError::AlreadyCancelled);
+
+        // Check if caller is the seller
+        require!(
+            ctx.accounts.seller.key() == seller_key,
+            EscrowError::Unauthorized
         );
-        
-        // Clean code to avoid borrowing conflicts
-        let withdraw_amount = campaign_amount_raised;
-        
-        // Transfer lamports
-        **ctx.accounts.admin.to_account_info().try_borrow_mut_lamports()? += withdraw_amount;
-        **ctx.accounts.campaign.to_account_info().try_borrow_mut_lamports()? -= withdraw_amount;
-        
-        // FLAW: Another inefficient logging
-        let dest_ending_lamports = ctx.accounts.admin.lamports();
-        msg!("Admin lamports before: {}", dest_starting_lamports);
-        msg!("Admin lamports after: {}", dest_ending_lamports);
-        
-        // Now update campaign state
-        let campaign = &mut ctx.accounts.campaign;
-        campaign.amount_raised = 0;
-        campaign.closed = true;
-        
-        // FLAW: Even more unnecessary allocations
-        let mut final_status = String::from("Campaign status: ");
-        final_status.push_str("CLOSED");
-        msg!("{}", final_status);
-        
+
+        // Mark escrow as completed
+        escrow_account.is_completed = true;
+
+        // Transfer funds from escrow account to buyer
+        let transfer_instruction = system_instruction::transfer(
+            &escrow_key,
+            &buyer_key,
+            amount,
+        );
+
+        // Get PDA seeds for signing
+        let (_pda, bump) = Pubkey::find_program_address(
+            &[
+                b"escrow",
+                seller_key.as_ref(),
+                buyer_key.as_ref(),
+            ],
+            ctx.program_id,
+        );
+        let seeds = &[
+            b"escrow",
+            seller_key.as_ref(),
+            buyer_key.as_ref(),
+            &[bump],
+        ];
+
+        invoke_signed(
+            &transfer_instruction,
+            &[
+                ctx.accounts.escrow_account.to_account_info(),
+                ctx.accounts.buyer.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+            &[&seeds[..]],
+        )?;
+
+        emit!(EscrowCompleted {
+            escrow_id: escrow_key,
+            seller: seller_key,
+            buyer: buyer_key,
+            amount,
+        });
+
         Ok(())
     }
-    
-    // FLAW: This function allows unilateral cancellation without refunds to donors
-    pub fn cancel_campaign(ctx: Context<Cancel>) -> Result<()> {
-        let campaign = &mut ctx.accounts.campaign;
+
+    // Cancel the escrow and return funds to the seller
+    pub fn cancel(ctx: Context<Cancel>) -> Result<()> {
+        // Get necessary keys first to avoid borrowing conflicts
+        let escrow_key = ctx.accounts.escrow_account.key();
         
-        // FLAW: Missing proper validation
-        if campaign.closed {
-            return Err(CampaignError::CampaignClosed.into());
-        }
+        let escrow_account = &mut ctx.accounts.escrow_account;
+        let buyer_key = escrow_account.buyer;
+        let seller_key = escrow_account.seller;
+        let amount = escrow_account.amount;
+
+        // Check if escrow is already completed or cancelled
+        require!(!escrow_account.is_completed, EscrowError::AlreadyCompleted);
+        require!(!escrow_account.is_cancelled, EscrowError::AlreadyCancelled);
+
+        // Check if the caller is the seller
+        require!(
+            ctx.accounts.seller.key() == seller_key,
+            EscrowError::Unauthorized
+        );
+
+        // Mark escrow as cancelled
+        escrow_account.is_cancelled = true;
+
+        // Transfer funds back to seller from escrow account
+        let transfer_instruction = system_instruction::transfer(
+            &escrow_key,
+            &seller_key,
+            amount,
+        );
+
+        // Get PDA seeds for signing
+        let (_pda, bump) = Pubkey::find_program_address(
+            &[
+                b"escrow",
+                seller_key.as_ref(),
+                buyer_key.as_ref(),
+            ],
+            ctx.program_id,
+        );
+        let seeds = &[
+            b"escrow",
+            seller_key.as_ref(),
+            buyer_key.as_ref(),
+            &[bump],
+        ];
+
+        invoke_signed(
+            &transfer_instruction,
+            &[
+                ctx.accounts.escrow_account.to_account_info(),
+                ctx.accounts.seller.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+            &[&seeds[..]],
+        )?;
+
+        emit!(EscrowCancelled {
+            escrow_id: escrow_key,
+            seller: seller_key,
+            buyer: buyer_key,
+            amount,
+        });
+
+        Ok(())
+    }
+
+    // Release funds to buyer if the release date has passed
+    pub fn release_funds(ctx: Context<ReleaseFunds>) -> Result<()> {
+        // Get necessary keys first to avoid borrowing conflicts
+        let escrow_key = ctx.accounts.escrow_account.key();
         
-        // FLAW: Doesn't check if campaign admin is the signer
-        
-        // FLAW: Doesn't handle refunds, just marks as closed
-        campaign.closed = true;
-        
-        // FLAW: Inefficient string concatenation
-        let mut status_message = String::from("Campaign ");
-        status_message.push_str(&campaign.name);
-        status_message.push_str(" has been cancelled");
-        msg!("{}", status_message);
-        
+        let escrow_account = &mut ctx.accounts.escrow_account;
+        let buyer_key = escrow_account.buyer;
+        let seller_key = escrow_account.seller;
+        let amount = escrow_account.amount;
+        let release_date = escrow_account.release_date;
+
+        // Check if escrow is already completed or cancelled
+        require!(!escrow_account.is_completed, EscrowError::AlreadyCompleted);
+        require!(!escrow_account.is_cancelled, EscrowError::AlreadyCancelled);
+
+        // Check if release date has passed
+        let current_time = Clock::get()?.unix_timestamp;
+        require!(
+            current_time >= release_date,
+            EscrowError::ReleaseTimeNotReached
+        );
+
+        // Mark escrow as completed
+        escrow_account.is_completed = true;
+
+        // Transfer funds from escrow account to buyer
+        let transfer_instruction = system_instruction::transfer(
+            &escrow_key,
+            &buyer_key,
+            amount,
+        );
+
+        // Get PDA seeds for signing
+        let (_pda, bump) = Pubkey::find_program_address(
+            &[
+                b"escrow",
+                seller_key.as_ref(),
+                buyer_key.as_ref(),
+            ],
+            ctx.program_id,
+        );
+        let seeds = &[
+            b"escrow",
+            seller_key.as_ref(),
+            buyer_key.as_ref(),
+            &[bump],
+        ];
+
+        invoke_signed(
+            &transfer_instruction,
+            &[
+                ctx.accounts.escrow_account.to_account_info(),
+                ctx.accounts.buyer.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+            &[&seeds[..]],
+        )?;
+
+        emit!(EscrowCompleted {
+            escrow_id: escrow_key,
+            seller: seller_key,
+            buyer: buyer_key,
+            amount,
+        });
+
         Ok(())
     }
 }
 
 #[derive(Accounts)]
-#[instruction(name: String, description: String, target_amount: u64, deadline: i64)]
 pub struct Initialize<'info> {
     #[account(mut)]
-    pub admin: Signer<'info>,
-    
-    // FLAW: Inefficient redundant seeds making the PDA harder to find
+    pub seller: Signer<'info>,
+    /// CHECK: This is the buyer's address
+    pub buyer: AccountInfo<'info>,
     #[account(
         init,
-        payer = admin,
-        space = 8 + 32 + 4 + name.len() + 4 + description.len() + 8 + 8 + 8 + 1,
-        seeds = [b"campaign", admin.key().as_ref(), name.as_bytes()],
+        payer = seller,
+        space = 8 + EscrowAccount::SIZE,
+        seeds = [b"escrow", seller.key().as_ref(), buyer.key().as_ref()],
         bump
     )]
-    pub campaign: Account<'info, Campaign>,
-    
+    pub escrow_account: Account<'info, EscrowAccount>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-pub struct Donate<'info> {
+pub struct Complete<'info> {
     #[account(mut)]
-    pub donator: Signer<'info>,
-    
-    // FLAW: No proper constraint to ensure the campaign is still open
+    pub seller: Signer<'info>,
+    /// CHECK: This is the buyer's address
     #[account(mut)]
-    pub campaign: Account<'info, Campaign>,
-    
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-pub struct Withdraw<'info> {
-    // FLAW: No constraint to check admin is the actual admin
-    #[account(mut)]
-    pub admin: Signer<'info>,
-    
-    // FLAW: Inefficient constraints
+    pub buyer: AccountInfo<'info>,
     #[account(
         mut,
-        seeds = [b"campaign", campaign.admin.as_ref(), campaign.name.as_bytes()],
-        bump,
-        // constraint = admin.key() == campaign.admin,
-        // constraint = !campaign.closed,
+        seeds = [b"escrow", seller.key().as_ref(), buyer.key().as_ref()],
+        bump
     )]
-    pub campaign: Account<'info, Campaign>,
-    
+    pub escrow_account: Account<'info, EscrowAccount>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
 pub struct Cancel<'info> {
-    // FLAW: No constraint to check admin is the actual admin
     #[account(mut)]
-    pub admin: Signer<'info>,
-    
-    // FLAW: Missing critical constraints
+    pub seller: Signer<'info>,
     #[account(
         mut,
-        seeds = [b"campaign", campaign.admin.as_ref(), campaign.name.as_bytes()],
-        bump,
+        seeds = [b"escrow", seller.key().as_ref(), escrow_account.buyer.as_ref()],
+        bump
     )]
-    pub campaign: Account<'info, Campaign>,
-    
+    pub escrow_account: Account<'info, EscrowAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct ReleaseFunds<'info> {
+    /// CHECK: This can be any signer to trigger release after the date
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    /// CHECK: This is the buyer's address
+    #[account(mut)]
+    pub buyer: AccountInfo<'info>,
+    #[account(
+        mut,
+        seeds = [b"escrow", escrow_account.seller.as_ref(), buyer.key().as_ref()],
+        bump,
+        constraint = buyer.key() == escrow_account.buyer
+    )]
+    pub escrow_account: Account<'info, EscrowAccount>,
     pub system_program: Program<'info, System>,
 }
 
 #[account]
-pub struct Campaign {
-    pub admin: Pubkey,
-    pub name: String,
-    pub description: String,
-    pub target_amount: u64,
-    pub amount_raised: u64,
-    pub deadline: i64,
-    pub closed: bool,
+pub struct EscrowAccount {
+    pub seller: Pubkey,
+    pub buyer: Pubkey,
+    pub amount: u64,
+    pub release_date: i64,
+    pub is_completed: bool,
+    pub is_cancelled: bool,
 }
 
-// FLAW: Insufficient error handling
-#[error_code]
-pub enum CampaignError {
-    #[msg("Deadline should be in the future")]
-    DeadlineShouldBeInFuture,
-    
-    #[msg("Campaign is closed")]
-    CampaignClosed,
-    
-    #[msg("Deadline not reached")]
-    DeadlineNotReached,
-    
+impl EscrowAccount {
+    pub const SIZE: usize = 32 + // seller pubkey
+                            32 + // buyer pubkey
+                            8 +  // amount u64
+                            8 +  // release_date i64
+                            1 +  // is_completed bool
+                            1; // is_cancelled bool
 }
+
+#[error_code]
+pub enum EscrowError {
+    #[msg("Escrow has already been completed")]
+    AlreadyCompleted,
+    #[msg("Escrow has already been cancelled")]
+    AlreadyCancelled,
+    #[msg("Unauthorized access to escrow")]
+    Unauthorized,
+    #[msg("Release time has not been reached yet")]
+    ReleaseTimeNotReached,
+}
+
+// Events
+#[event]
+pub struct EscrowCreated {
+    pub escrow_id: Pubkey,
+    pub seller: Pubkey,
+    pub buyer: Pubkey,
+    pub amount: u64,
+    pub release_date: i64,
+}
+
+#[event]
+pub struct EscrowCompleted {
+    pub escrow_id: Pubkey,
+    pub seller: Pubkey,
+    pub buyer: Pubkey,
+    pub amount: u64,
+}
+
+#[event]
+pub struct EscrowCancelled {
+    pub escrow_id: Pubkey,
+    pub seller: Pubkey,
+    pub buyer: Pubkey,
+    pub amount: u64,
+}
+

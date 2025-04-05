@@ -15,7 +15,7 @@ This directory contains test scripts designed to assess the scalability, interop
 Install Node.js dependencies:
 
 ```bash
-npm install @solana/web3.js @coral-xyz/anchor
+npm install @solana/web3.js @coral-xyz/anchor chalk
 ```
 
 ## Wallet Configuration
@@ -74,15 +74,33 @@ node contract_test.js escrow CxEvoPT1kHshLT8GoDVS1mKJqeYNGiNzN4puGei9tXKq
 
 ### 4. Security Analysis
 
-The `security_analysis.sh` script performs static analysis and security checks on AI-generated contracts.
+The `security_analysis.js` script performs static analysis and security checks on AI-generated contracts.
 
 ```bash
 # Usage
-./security_analysis.sh
+node security_analysis.js [program_id] [options]
 
-# The script analyzes the contract at the path configured in the script
-# and saves results to security_results.json
+# Examples:
+# Use program ID from program-info.json
+node security_analysis.js
+
+# Specify a program ID directly 
+node security_analysis.js 3AXDMAXWYu3iGxgdqPv7Z6Xwyqytx9nJ2EB91qzGEf5J
+
+# Skip deployment verification with --force-deployed flag
+node security_analysis.js 3AXDMAXWYu3iGxgdqPv7Z6Xwyqytx9nJ2EB91qzGEf5J --force-deployed
+
+# Show help
+node security_analysis.js --help
 ```
+
+The script performs a comprehensive security analysis:
+1. Basic security checks for common patterns and vulnerabilities
+2. Code quality validation with rustfmt and clippy
+3. Deep vulnerability scanning for common Solana/Anchor vulnerabilities
+4. Deployment verification on devnet
+
+Reports are generated in the `security_reports` directory.
 
 ## Typical Testing Workflow
 
@@ -108,7 +126,15 @@ The `security_analysis.sh` script performs static analysis and security checks o
 4. Run security analysis
    ```bash
    cd ../test_scripts
-   ./security_analysis.sh
+   
+   # Using program ID from program-info.json
+   node security_analysis.js
+   
+   # Or directly specify program ID
+   node security_analysis.js <program_id_from_deployment>
+   
+   # If you know the contract is deployed but can't be detected:
+   node security_analysis.js <program_id_from_deployment> --force-deployed
    ```
 
 5. Run comprehensive contract tests
@@ -132,7 +158,25 @@ The `security_analysis.sh` script performs static analysis and security checks o
 - `contract_test.js`: Comprehensive contract testing
 - `interoperability_test.js`: Registry integration testing
 - `tps_test.js`: Performance testing
-- `security_analysis.sh`: Security validation
+- `security_analysis.js`: Security validation with clippy and rustfmt integration
+- `verify_deployment.js`: Deployment verification
+
+## Security Analysis Features
+
+The security analysis script provides the following checks:
+
+1. **Static Analysis with Clippy**: Checks for common Rust coding issues
+2. **Code Formatting with Rustfmt**: Verifies proper code style
+3. **Security Vulnerability Detection**:
+   - Checked math operations
+   - Authority validation
+   - Registry integration
+   - Error handling
+   - PDA bump handling
+   - Re-entrancy protection
+   - Integer overflow protection
+4. **Deployment Verification**: Confirms the contract is properly deployed
+5. **Comprehensive Reporting**: Generates a detailed Markdown report with recommendations
 
 ## Registry Subcontract Deployment
 
