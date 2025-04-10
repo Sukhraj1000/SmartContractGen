@@ -3,7 +3,6 @@ import sys
 import os
 from ai.ai_client import client, get_ai_client, extract_code_from_ai_response, extract_program_id_from_deployed_contract
 
-# Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 CONTRACT_OUTPUT_PATH = "../deploy/programs/deploy/src/lib.rs"
