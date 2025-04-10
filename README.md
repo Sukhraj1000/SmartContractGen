@@ -33,7 +33,7 @@ SmartContractGen automates the process of creating, testing, and deploying Solan
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/SmartContractGen.git
+git clone https://github.com/Sukhraj1000/SmartContractGen.git
 cd SmartContractGen
 ```
 
@@ -110,5 +110,3 @@ Test scripts are available in the `back/test_scripts/` directory for:
 - Interoperability testing with the registry contract
 - Security analysis
 
-
-# Repository restored and working properly
