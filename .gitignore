@@ -1,0 +1,50 @@
+# Node.js dependencies
+node_modules/
+**/node_modules/
+back/node_modules/
+ui/node_modules/
+package-lock.json
+
+# Python dependencies
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+skvenv/
+*/skvenv/
+back/skvenv/
+**/skvenv/
+
+test-ledger/
+
+# Wallet and sensitive JSON files
+test-wallet.json
+receiver-wallet.json
+test-config.json
+.keypair/
+.keypair/*.json
+*-keypair.json
+**/*-keypair.json
+**/deploy-keypair.json
+ui/public/vite.svg
+ui/src/assets/react.svg
+**/*.svg
+
+# Temporary and system files
+*.log
+temp/
+.DS_Store
+Thumbs.db
+
+# Frontend build artifacts
+dist/
+.vite/
+
+# IDE and editor specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+.git_corrupted/
