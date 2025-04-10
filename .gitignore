@@ -46,6 +46,7 @@ env.local
 temp/
 .DS_Store
 Thumbs.db
+tmp_git/
 
 # Frontend build artifacts
 dist/
