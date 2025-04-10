@@ -1,258 +1,281 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{
-    program::invoke,
-    system_instruction,
-};
+use anchor_lang::solana_program::{program::invoke, system_instruction};
+use std::str::FromStr;
 
-declare_id!("HiGDqXXHuZ8kzEhS1zhSPU6QQg9RAsgwo7jv2QEY59j9");
+declare_id!("7h3nZshfG5ASJV1ZJ9HGsU7rqWATzLih4aMEcGrLvCXd");
+
+// Registry integration code
+pub const REGISTRY_PROGRAM_ID: &str = "BhETt1LhzVYpK5DTcRuNZdKyb3QTz8HktUoXQJQapmvn";
+pub const REGISTRY_TRANSACTION_SEED: &str = "transaction_v1";
+
+// Structure for Registry transaction data
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct RegistryTransactionData {
+    pub tx_type: String,
+    pub amount: u64, 
+    pub initiator: Pubkey,
+    pub target_account: Pubkey,
+    pub description: String,
+}
 
 #[program]
-pub mod escrow {
+pub mod deploy {
     use super::*;
 
-    pub fn initialize(
-        ctx: Context<Initialize>,
-        amount: u64,
-        release_condition: u64,
-    ) -> Result<()> {
-        let escrow = &mut ctx.accounts.escrow;
+    pub fn initialize(ctx: Context<Initialize>, amount: u64, release_condition: String) -> Result<()> {
+        // Initialize escrow account
+        let escrow = &mut ctx.accounts.escrow_account;
         
-        // Initialize escrow data
-        escrow.initializer = ctx.accounts.initializer.key();
-        escrow.recipient = ctx.accounts.recipient.key();
+        escrow.sender = ctx.accounts.sender.key();
+        escrow.receiver = ctx.accounts.receiver.key();
+        escrow.escrow_authority = ctx.accounts.escrow_authority.key();
         escrow.amount = amount;
         escrow.release_condition = release_condition;
-        escrow.bump = ctx.bumps.escrow;
         escrow.is_completed = false;
         
-        // Transfer funds from initializer to escrow account
+        // Transfer funds from sender to escrow account
         let transfer_instruction = system_instruction::transfer(
-            &ctx.accounts.initializer.key(),
-            &ctx.accounts.escrow.to_account_info().key(),
+            &ctx.accounts.sender.key(),
+            &ctx.accounts.escrow_account.key(),
             amount,
         );
+        
+        // Clone the account infos before using them to avoid borrow conflicts
+        let sender_info = ctx.accounts.sender.to_account_info();
+        let escrow_account_info = ctx.accounts.escrow_account.to_account_info();
+        let system_program_info = ctx.accounts.system_program.to_account_info();
         
         invoke(
             &transfer_instruction,
             &[
-                ctx.accounts.initializer.to_account_info(),
-                ctx.accounts.escrow.to_account_info(),
-                ctx.accounts.system_program.to_account_info(),
+                sender_info,
+                escrow_account_info,
+                system_program_info,
             ],
         )?;
         
-        // Log transaction for registry
-        register_with_registry("initialize", amount, ctx.accounts.initializer.key(), ctx.accounts.recipient.key());
+        // Register the transaction with the registry program if provided
+        if ctx.accounts.registry_program.key() == Pubkey::from_str(REGISTRY_PROGRAM_ID).unwrap_or_default() {
+            let registry_data = RegistryTransactionData {
+                tx_type: "escrow_initialize".to_string(),
+                amount,
+                initiator: ctx.accounts.sender.key(),
+                target_account: ctx.accounts.receiver.key(),
+                description: format!("Escrow initialized with amount {}", amount),
+            };
+            
+            // Register the transaction using the helper function
+            register_transaction_helper(
+                ctx.accounts.registry_program.to_account_info(),
+                ctx.accounts.registry_transaction.to_account_info(),
+                ctx.accounts.sender.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+                registry_data,
+            )?;
+        }
         
-        msg!("Escrow initialized with {} SOL", amount);
         Ok(())
     }
-    
+
     pub fn release(ctx: Context<Release>) -> Result<()> {
-        let escrow = &mut ctx.accounts.escrow;
+        // Get the escrow account info and balance first
+        let escrow_info = ctx.accounts.escrow_account.to_account_info();
+        let escrow_balance = escrow_info.lamports();
         
-        // Verify escrow is not already completed
-        require!(!escrow.is_completed, EscrowError::AlreadyCompleted);
-        
-        // Verify release condition is met
+        // Only the escrow authority can release funds
         require!(
-            Clock::get()?.slot >= escrow.release_condition,
-            EscrowError::ReleaseConditionNotMet
+            ctx.accounts.escrow_authority.key() == ctx.accounts.escrow_account.escrow_authority,
+            EscrowError::UnauthorizedAccess
         );
         
-        // Mark escrow as completed
-        escrow.is_completed = true;
+        // Ensure escrow is not already completed
+        require!(!ctx.accounts.escrow_account.is_completed, EscrowError::AlreadyCompleted);
         
-        // Calculate the amount to transfer
-        let amount = escrow.amount;
+        // Get the rent to calculate rent-exempt amount
+        let rent = Rent::get()?;
         
-        // Transfer funds from escrow to recipient
-        **ctx.accounts.escrow.to_account_info().try_borrow_mut_lamports()? = ctx
-            .accounts
-            .escrow
-            .to_account_info()
-            .lamports()
-            .checked_sub(amount)
-            .ok_or(EscrowError::AmountOverflow)?;
+        // Calculate the rent-exempt amount first
+        let rent_exempt_lamports = rent.minimum_balance(8 + EscrowAccount::SIZE);
+        
+        // Calculate the amount to transfer (total balance minus rent-exempt amount)
+        let transfer_amount = escrow_balance
+            .checked_sub(rent_exempt_lamports)
+            .ok_or(EscrowError::MathOverflow)?;
+        
+        // Transfer funds from escrow account to receiver
+        **escrow_info.try_borrow_mut_lamports()? = rent_exempt_lamports;
             
-        **ctx.accounts.recipient.try_borrow_mut_lamports()? = ctx
-            .accounts
-            .recipient
+        // Clone receiver info to avoid borrow conflicts
+        let receiver_info = ctx.accounts.receiver.to_account_info();
+        **receiver_info.try_borrow_mut_lamports()? = receiver_info
             .lamports()
-            .checked_add(amount)
-            .ok_or(EscrowError::AmountOverflow)?;
+            .checked_add(transfer_amount)
+            .ok_or(EscrowError::MathOverflow)?;
         
-        // Log transaction for registry
-        register_with_registry("release", amount, ctx.accounts.escrow.key(), ctx.accounts.recipient.key());
+        // Mark escrow as completed
+        ctx.accounts.escrow_account.is_completed = true;
         
-        msg!("Escrow released {} SOL to recipient", amount);
+        // Register the transaction with the registry program if provided
+        if ctx.accounts.registry_program.key() == Pubkey::from_str(REGISTRY_PROGRAM_ID).unwrap_or_default() {
+            let registry_data = RegistryTransactionData {
+                tx_type: "escrow_release".to_string(),
+                amount: transfer_amount,
+                initiator: ctx.accounts.escrow_authority.key(),
+                target_account: ctx.accounts.receiver.key(),
+                description: format!("Escrow released with amount {}", transfer_amount),
+            };
+            
+            // Register the transaction using the helper function
+            register_transaction_helper(
+                ctx.accounts.registry_program.to_account_info(),
+                ctx.accounts.registry_transaction.to_account_info(),
+                ctx.accounts.escrow_authority.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+                registry_data,
+            )?;
+        }
+        
         Ok(())
     }
-    
-    pub fn cancel(ctx: Context<Cancel>) -> Result<()> {
-        let escrow = &mut ctx.accounts.escrow;
-        
-        // Verify escrow is not already completed
-        require!(!escrow.is_completed, EscrowError::AlreadyCompleted);
-        
-        // Mark escrow as completed
-        escrow.is_completed = true;
-        
-        // Calculate the amount to transfer
-        let amount = escrow.amount;
-        
-        // Transfer funds from escrow back to initializer
-        **ctx.accounts.escrow.to_account_info().try_borrow_mut_lamports()? = ctx
-            .accounts
-            .escrow
-            .to_account_info()
-            .lamports()
-            .checked_sub(amount)
-            .ok_or(EscrowError::AmountOverflow)?;
-            
-        **ctx.accounts.initializer.try_borrow_mut_lamports()? = ctx
-            .accounts
-            .initializer
-            .lamports()
-            .checked_add(amount)
-            .ok_or(EscrowError::AmountOverflow)?;
-        
-        // Log transaction for registry
-        register_with_registry("cancel", amount, ctx.accounts.escrow.key(), ctx.accounts.initializer.key());
-        
-        msg!("Escrow cancelled and {} SOL returned to initializer", amount);
-        Ok(())
+
+    pub fn register_transaction(ctx: Context<RegisterTransaction>, data: RegistryTransactionData) -> Result<()> {
+        // Register the transaction using the helper function
+        register_transaction_helper(
+            ctx.accounts.registry_program.to_account_info(),
+            ctx.accounts.registry_transaction.to_account_info(),
+            ctx.accounts.payer.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            data,
+        )
     }
 }
 
+// Helper function to register transactions with the registry program
+fn register_transaction_helper<'a>(
+    registry_program: AccountInfo<'a>,
+    registry_transaction: AccountInfo<'a>,
+    payer: AccountInfo<'a>,
+    system_program: AccountInfo<'a>,
+    data: RegistryTransactionData,
+) -> Result<()> {
+    // Serialize the transaction data
+    let mut tx_data = Vec::new();
+    data.serialize(&mut tx_data).map_err(|_| EscrowError::SerializationError)?;
+    
+    // Create cross-program invocation instruction data
+    let mut instruction_data = Vec::new();
+    instruction_data.push(0); // Instruction index for register_transaction
+    instruction_data.extend_from_slice(&tx_data);
+    
+    // Create the instruction
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: registry_program.key(),
+        accounts: vec![
+            anchor_lang::solana_program::instruction::AccountMeta::new(registry_transaction.key(), false),
+            anchor_lang::solana_program::instruction::AccountMeta::new(payer.key(), true),
+            anchor_lang::solana_program::instruction::AccountMeta::new_readonly(system_program.key(), false),
+        ],
+        data: instruction_data,
+    };
+    
+    // Invoke the instruction
+    anchor_lang::solana_program::program::invoke(
+        &ix,
+        &[
+            registry_transaction.clone(),
+            payer.clone(),
+            system_program.clone(),
+        ],
+    ).map_err(|_| EscrowError::RegistryError)?;
+    
+    Ok(())
+}
+
 #[derive(Accounts)]
-#[instruction(amount: u64, release_condition: u64)]
 pub struct Initialize<'info> {
     #[account(mut)]
-    pub initializer: Signer<'info>,
-    
-    /// CHECK: This is the recipient of the escrow funds
-    pub recipient: AccountInfo<'info>,
-    
+    pub sender: Signer<'info>,
+    /// CHECK: Receiver address verification is not critical to contract security
+    pub receiver: AccountInfo<'info>,
+    /// CHECK: The authorized user who can release funds
+    pub escrow_authority: AccountInfo<'info>,
     #[account(
         init,
-        payer = initializer,
-        space = 8 + Escrow::SIZE,
-        seeds = [
-            b"escrow",
-            initializer.key().as_ref(),
-            recipient.key().as_ref(),
-            amount.to_le_bytes().as_ref(),
-        ],
-        bump
+        payer = sender,
+        space = 8 + EscrowAccount::SIZE,
     )]
-    pub escrow: Account<'info, Escrow>,
-    
+    pub escrow_account: Account<'info, EscrowAccount>,
     pub system_program: Program<'info, System>,
-    
-    /// CHECK: This is the registry program
-    #[account(constraint = registry_program.key() == REGISTRY_PROGRAM_ID)]
+    /// CHECK: Registry program will verify on its end
     pub registry_program: AccountInfo<'info>,
+    /// CHECK: PDA will be handled by the Registry program
+    pub registry_transaction: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
 pub struct Release<'info> {
-    /// CHECK: This is the recipient of the escrow funds
+    /// CHECK: This is the escrow authority that can release funds
     #[account(mut)]
-    pub recipient: AccountInfo<'info>,
-    
+    pub escrow_authority: Signer<'info>,
+    #[account(mut)]
+    pub escrow_account: Account<'info, EscrowAccount>,
+    /// CHECK: This is the receiver of the funds
     #[account(
         mut,
-        seeds = [
-            b"escrow",
-            escrow.initializer.as_ref(),
-            escrow.recipient.as_ref(),
-            escrow.amount.to_le_bytes().as_ref(),
-        ],
-        bump = escrow.bump,
-        constraint = escrow.recipient == recipient.key() @ EscrowError::InvalidRecipient,
+        constraint = receiver.key() == escrow_account.receiver @ EscrowError::InvalidReceiver
     )]
-    pub escrow: Account<'info, Escrow>,
-    
+    pub receiver: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
-    
-    /// CHECK: This is the registry program
-    #[account(constraint = registry_program.key() == REGISTRY_PROGRAM_ID)]
+    /// CHECK: Registry program will verify on its end
     pub registry_program: AccountInfo<'info>,
+    /// CHECK: PDA will be handled by the Registry program
+    pub registry_transaction: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
-pub struct Cancel<'info> {
-    #[account(mut)]
-    pub initializer: Signer<'info>,
-    
-    #[account(
-        mut,
-        seeds = [
-            b"escrow",
-            escrow.initializer.as_ref(),
-            escrow.recipient.as_ref(),
-            escrow.amount.to_le_bytes().as_ref(),
-        ],
-        bump = escrow.bump,
-        constraint = escrow.initializer == initializer.key() @ EscrowError::InvalidInitializer,
-    )]
-    pub escrow: Account<'info, Escrow>,
-    
-    pub system_program: Program<'info, System>,
-    
-    /// CHECK: This is the registry program
-    #[account(constraint = registry_program.key() == REGISTRY_PROGRAM_ID)]
+pub struct RegisterTransaction<'info> {
+    /// CHECK: The registry program to call
     pub registry_program: AccountInfo<'info>,
+    /// CHECK: The registry transaction account
+    pub registry_transaction: AccountInfo<'info>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 #[account]
-pub struct Escrow {
-    pub initializer: Pubkey,
-    pub recipient: Pubkey,
+pub struct EscrowAccount {
+    pub sender: Pubkey,
+    pub receiver: Pubkey,
+    pub escrow_authority: Pubkey,
     pub amount: u64,
-    pub release_condition: u64,
+    pub release_condition: String,
     pub is_completed: bool,
-    pub bump: u8,
 }
 
-impl Escrow {
-    pub const SIZE: usize = 32 + // initializer
-                            32 + // recipient
-                            8 +  // amount
-                            8 +  // release_condition
-                            1 +  // is_completed
-                            1;   // bump
+impl EscrowAccount {
+    pub const SIZE: usize = 32 + // sender pubkey
+                            32 + // receiver pubkey
+                            32 + // escrow_authority pubkey
+                            8 +  // amount u64
+                            4 + 200 + // release_condition String (assuming max 200 chars)
+                            1;   // is_completed bool
 }
 
 #[error_code]
 pub enum EscrowError {
-    #[msg("Escrow has already been completed")]
+    #[msg("The escrow has already been completed")]
     AlreadyCompleted,
-    
-    #[msg("Release condition has not been met")]
-    ReleaseConditionNotMet,
-    
-    #[msg("Invalid recipient")]
-    InvalidRecipient,
-    
-    #[msg("Invalid initializer")]
-    InvalidInitializer,
-    
-    #[msg("Amount overflow")]
-    AmountOverflow,
-}
-
-// Registry program ID
-pub const REGISTRY_PROGRAM_ID: Pubkey = pubkey!("BhETt1LhzVYpK5DTcRuNZdKyb3QTz8HktUoXQJQapmvn");
-
-// Helper function to log registry transactions
-fn register_with_registry(tx_type: &str, amount: u64, initiator: Pubkey, target_account: Pubkey) {
-    msg!(
-        "Registry Transaction: type={}, amount={}, initiator={}, target={}",
-        tx_type,
-        amount,
-        initiator,
-        target_account
-    );
+    #[msg("Only the escrow authority can release funds")]
+    UnauthorizedAccess,
+    #[msg("Math overflow")]
+    MathOverflow,
+    #[msg("Serialization error")]
+    SerializationError,
+    #[msg("Registry program invocation error")]
+    RegistryError,
+    #[msg("Invalid registry program address")]
+    InvalidRegistryProgram,
+    #[msg("Invalid receiver")]
+    InvalidReceiver,
 }
