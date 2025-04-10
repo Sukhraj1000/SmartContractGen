@@ -44,20 +44,20 @@ Program ID: 3AXDMAXWYu3iGxgdqPv7Z6Xwyqytx9nJ2EB91qzGEf5J
 - Contract is deployed on devnet
 
 ## Recommendations
-- 🔑 **Basic Security**: Implement Checked Math Operations: No checked math operations found! This may lead to arithmetic overflows/underflows
-- 🔑 **Basic Security**: Implement Authority Validation: Authority validation may be missing! This may allow unauthorized access to funds or operations
-- 🔑 **Basic Security**: Implement Registry Integration: Registry integration is missing! This will cause interoperability tests to fail
-- 🔑 **Basic Security**: Implement PDA Bump Handling: Proper bump handling may be missing! This may lead to insecure PDA derivation
-- 🔑 **Basic Security**: Implement Re-entrancy Protection: No explicit re-entrancy protection found! Verify that contract is not vulnerable to re-entrancy attacks
-- 🔑 **Basic Security**: Implement Integer Overflow Protection: No explicit integer overflow protection found! Ensure all arithmetic operations use checked_ variants
-- 📏 **Code Quality**: Fix code formatting issues by running `cargo fmt`
-- 🔍 **Code Quality**: Address clippy warnings to improve code quality
-- 🛡️ **Security Vulnerability**: Fix Arbitrary CPI Calls (MEDIUM risk): Ensure CPI calls are properly validated and authorized
-- 🛡️ **Security Vulnerability**: Fix Potential Reentrancy (HIGH risk): Implement a reentrancy guard or ensure state changes happen before external calls
-- 🛡️ **Security Vulnerability**: Fix Unsafe Math (HIGH risk): Use checked_ variants for all arithmetic operations
-- 🛡️ **Security Vulnerability**: Fix Hardcoded Seeds (LOW risk): Ensure seeds are appropriate and follow security best practices
-- 🛡️ **Security Vulnerability**: Fix Unprotected State Modification (MEDIUM risk): Add appropriate access control using constraints or requires! macros
-- 🛡️ **Security Vulnerability**: Fix Missing Close Functionality (MEDIUM risk): Implement close functionality for all initializable accounts
+- **Basic Security**: Implement Checked Math Operations: No checked math operations found! This may lead to arithmetic overflows/underflows
+-  **Basic Security**: Implement Authority Validation: Authority validation may be missing! This may allow unauthorized access to funds or operations
+-  **Basic Security**: Implement Registry Integration: Registry integration is missing! This will cause interoperability tests to fail
+-  **Basic Security**: Implement PDA Bump Handling: Proper bump handling may be missing! This may lead to insecure PDA derivation
+-  **Basic Security**: Implement Re-entrancy Protection: No explicit re-entrancy protection found! Verify that contract is not vulnerable to re-entrancy attacks
+-  **Basic Security**: Implement Integer Overflow Protection: No explicit integer overflow protection found! Ensure all arithmetic operations use checked_ variants
+-  **Code Quality**: Fix code formatting issues by running `cargo fmt`
+-  **Code Quality**: Address clippy warnings to improve code quality
+-  **Security Vulnerability**: Fix Arbitrary CPI Calls (MEDIUM risk): Ensure CPI calls are properly validated and authorized
+-  **Security Vulnerability**: Fix Potential Reentrancy (HIGH risk): Implement a reentrancy guard or ensure state changes happen before external calls
+-  **Security Vulnerability**: Fix Unsafe Math (HIGH risk): Use checked_ variants for all arithmetic operations
+-  **Security Vulnerability**: Fix Hardcoded Seeds (LOW risk): Ensure seeds are appropriate and follow security best practices
+-  **Security Vulnerability**: Fix Unprotected State Modification (MEDIUM risk): Add appropriate access control using constraints or requires! macros
+-  **Security Vulnerability**: Fix Missing Close Functionality (MEDIUM risk): Implement close functionality for all initializable accounts
 
 ## Next Steps
 1. Address all recommendations listed above
