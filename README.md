@@ -45,7 +45,7 @@ pip install -r requirements.txt
 
 Create a `.env` file in the `back/` directory with:
 ```
-ANTHROPIC_API_KEY=sk-ant- api03-crueuHpk6GXGzfVlCU1w7rj SWMgft7NaO78lSultPMvwb7 FU4NN3ivo_Ly111Fi36mJItJ6VFXjr6-vBPzmZyQ-w5rskAAA(backspace spaces to use api key)
+ANTHROPIC_API_KEY=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
 
 ```
 
