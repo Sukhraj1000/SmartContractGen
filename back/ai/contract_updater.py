@@ -7,7 +7,7 @@ from pathlib import Path
 from ai.ai_client import client, get_ai_client, extract_code_from_ai_response, extract_program_id_from_deployed_contract
 import time
 
-# Add parent directory to path for imports
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ai.contract_generator import get_template_for_contract_type, generate_smart_contract
@@ -31,7 +31,7 @@ def update_contract(contract_type, contract_code, update_requirements, output_pa
         Updated contract code
     """
     try:
-        # Add parent dir to path to allow local imports
+        # Allow local imports
         import sys, os
         sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         
@@ -275,7 +275,7 @@ def integrate_keys_into_contract(contract_code, contract_type, contract_id=None)
     """
     
     try:
-        # Add parent dir to path to allow local imports
+        # Allow local imports
         import sys, os
         sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         
@@ -298,7 +298,7 @@ def integrate_keys_into_contract(contract_code, contract_type, contract_id=None)
             
         improved_contract = response.content[0].text.strip()
         
-        # Clean up the response - remove markdown code blocks if present
+        # Clean up the response - remove markdown code in generation if present
         improved_contract = improved_contract.replace("```rust", "").replace("```", "").strip()
         
         # Save the improved contract if contract_id provided
@@ -334,7 +334,7 @@ def smart_contract_build_loop(contract_type, schema, max_attempts=5):
     import sys, os, subprocess, re, time
     from pathlib import Path
     
-    # Add parent dir to path to allow local imports
+    # Allow local imports
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     
     from ai.contract_generator import generate_smart_contract
@@ -468,7 +468,7 @@ def _setup_build_environment(deploy_dir):
                 "anchor-lang = { workspace = true, features = [\"init-if-needed\"] }"
             )
         
-        # Add optimization settings for stack size if missing
+        # Add optimisation settings for stack size if missing
         if '[profile.release]' not in cargo_toml:
             cargo_toml += """
 [profile.release]
@@ -631,7 +631,7 @@ def _extract_error_summary(error_log):
     if error_lines:
         error_summary += "\nError locations:\n" + "\n".join(error_lines[:6])  # Limit to 6 lines
     
-    # Categorize errors for targeted fixes
+    # Categorise errors for targeted fixes
     error_categories = {
         'stack_size': ['Stack offset', 'exceeded max offset', 'stack usage'],
         'type_safety': ['mismatched types', 'expected `i64`', 'expected `u64`', 'overflow', 'underflow'],
@@ -656,7 +656,7 @@ def _apply_automatic_fixes(lib_rs_path, error_log):
     """Apply automatic fixes for common errors."""
     import os, re
     
-    # Categorize errors
+    # Categorise errors
     error_categories = {
         'question_mark': ['E0277', 'cannot use the `?` operator', 'FromResidual'],
         'borrow_check': ['borrow of moved value', 'E0382']
@@ -668,7 +668,7 @@ def _apply_automatic_fixes(lib_rs_path, error_log):
         with open(lib_rs_path, 'r') as f:
             contract_code = f.read()
         
-        # Replace Clock::get()? with Clock::get().expect(...)
+        # Replace Clock::get()? with Clock::get().expect(...) in contract
         contract_code = re.sub(
             r'Clock::get\(\)\?',
             r'Clock::get().expect("Failed to get clock")',
@@ -709,7 +709,6 @@ def deploy_contract_from_loop(programme_id, contract_type, network="devnet"):
         Success status (True/False)
     """
     try:
-        # Add parent dir to path to allow local imports
         import sys, os, subprocess
         from pathlib import Path
         sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
